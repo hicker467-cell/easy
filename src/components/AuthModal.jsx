@@ -28,6 +28,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+
+    // Validate empty fields
+    if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
+    if (!password.trim()) { setErrorMsg('Password is required.'); return; }
+    if (isRegister && !name.trim()) { setErrorMsg('Name is required.'); return; }
+    if (password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
+
     setLoading(true);
 
     try {
@@ -124,7 +131,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         body: JSON.stringify({
           action: 'google',
           name: 'Google Student',
-          email: email || 'student@gmail.com'
+          email: 'google_' + Date.now() + '@gmail.com' // unique placeholder
         })
       });
       const data = await res.json();
