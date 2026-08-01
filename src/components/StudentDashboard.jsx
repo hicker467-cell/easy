@@ -136,6 +136,12 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
     if (activeSession) {
       setShowPunchOutModal(true);
     } else {
+      // Block punch-in if GPS not available yet
+      if (mode === 'offline' && !currentCoords) {
+        alert('📍 Location nahi mili!\n\nBrowser mein Location Permission allow karo aur phir try karo.\n\nSettings → Site Settings → Location → Allow');
+        return;
+      }
+
       // Punch In (sends GPS coords for BOTH offline and online modes)
       try {
         const res = await fetch('/api/attendance', {
@@ -146,7 +152,7 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
             studentId: currentUser.studentId,
             studentName: currentUser.name,
             mode: mode === 'offline' ? 'location' : 'online',
-            location: currentCoords || { latitude: 28.6140, longitude: 77.2091 }
+            location: currentCoords || null  // send null if GPS unavailable (online mode)
           })
         });
         const data = await res.json();
