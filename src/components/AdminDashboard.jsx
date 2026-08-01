@@ -39,6 +39,17 @@ export default function AdminDashboard({ currentUser }) {
   const [loading, setLoading] = useState(false);
   const [cardRefreshing, setCardRefreshing] = useState({});
 
+  // Pagination States
+  const [calendarPage, setCalendarPage] = useState(1);
+  const [locationPage, setLocationPage] = useState(1);
+  const [guestPage, setGuestPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  // Guest delete state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [guestRefreshing, setGuestRefreshing] = useState({});
+
   // Admin PIN Protection or logged in admin user
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(currentUser?.role === 'admin');
   const [showAdminPinModal, setShowAdminPinModal] = useState(false);
@@ -100,6 +111,46 @@ export default function AdminDashboard({ currentUser }) {
       setCardRefreshing((prev) => ({ ...prev, [attendanceId]: false }));
     }
   };
+
+  const deleteGuest = async (guestId) => {
+    await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-guest', guestId })
+    });
+    setGuestLogs((prev) => prev.filter((g) => g.id !== guestId));
+    setDeleteConfirm(null);
+    setDeleteTargetId(null);
+  };
+
+  const deleteAllGuests = async () => {
+    await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-all-guests' })
+    });
+    setGuestLogs([]);
+    setDeleteConfirm(null);
+  };
+
+  const refreshGuest = async (guestId) => {
+    setGuestRefreshing((prev) => ({ ...prev, [guestId]: true }));
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refresh-guest', guestId })
+      });
+      const data = await res.json();
+      if (data.success && data.guest) {
+        setGuestLogs((prev) =>
+          prev.map((g) => g.id === guestId ? { ...g, lastRefreshed: data.guest.lastRefreshed } : g)
+        );
+      }
+    } catch (e) { console.error(e); }
+    setGuestRefreshing((prev) => ({ ...prev, [guestId]: false }));
+  };
+
 
   useEffect(() => {
     fetchAttendanceData();
@@ -392,7 +443,7 @@ export default function AdminDashboard({ currentUser }) {
           </div>
 
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-            {daysList.map((day) => {
+            {daysList.slice((calendarPage - 1) * PAGE_SIZE, calendarPage * PAGE_SIZE).map((day) => {
               const dayRecords = dateMap[day.dateStr] || [];
               const hasRecords = dayRecords.length > 0;
 
@@ -422,6 +473,25 @@ export default function AdminDashboard({ currentUser }) {
               );
             })}
           </div>
+
+          {/* Calendar Pagination */}
+          {daysList.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setCalendarPage((p) => Math.max(1, p - 1))}
+                disabled={calendarPage === 1}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40"
+              >← Prev</button>
+              <span className="text-xs text-slate-500 font-semibold">
+                Page {calendarPage} of {Math.ceil(daysList.length / PAGE_SIZE)}
+              </span>
+              <button
+                onClick={() => setCalendarPage((p) => Math.min(Math.ceil(daysList.length / PAGE_SIZE), p + 1))}
+                disabled={calendarPage === Math.ceil(daysList.length / PAGE_SIZE)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40"
+              >Next →</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -443,92 +513,94 @@ export default function AdminDashboard({ currentUser }) {
           {attendance.length === 0 ? (
             <p className="py-8 text-center text-slate-400 text-xs italic">No location records available.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {attendance.map((rec) => {
-                const recId = rec.id || rec._id;
-                const lat = rec.locationData?.latitude || 28.6140;
-                const lng = rec.locationData?.longitude || 77.2091;
-                const dist = rec.locationData?.distanceMeters || 0;
-                const isLeft = rec.locationData?.isLeftCampus;
-                const ip = rec.locationData?.ipAddress || '192.168.1.17';
-                const mapLink = `https://maps.google.com/?q=${lat},${lng}`;
-                const isSpinning = cardRefreshing[recId];
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {attendance.slice((locationPage - 1) * PAGE_SIZE, locationPage * PAGE_SIZE).map((rec) => {
+                  const recId = rec.id || rec._id;
+                  const lat = rec.locationData?.latitude || 28.6140;
+                  const lng = rec.locationData?.longitude || 77.2091;
+                  const dist = rec.locationData?.distanceMeters || 0;
+                  const isLeft = rec.locationData?.isLeftCampus;
+                  const ip = rec.locationData?.ipAddress || '192.168.1.17';
+                  const mapLink = `https://maps.google.com/?q=${lat},${lng}`;
+                  const isSpinning = cardRefreshing[recId];
 
-                return (
-                  <div key={recId} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 text-xs">
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-slate-900">{rec.studentName}</h4>
-                        <p className="text-[10px] text-slate-400 font-mono">{rec.studentId}</p>
+                  return (
+                    <div key={recId} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 text-xs">
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-slate-900">{rec.studentName}</h4>
+                          <p className="text-[10px] text-slate-400 font-mono">{rec.studentId}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => refreshSingleStudentLiveLocation(recId)}
+                            disabled={isSpinning}
+                            title="Fetch current student live GPS location"
+                            className="px-2 py-1 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-all shadow-sm"
+                          >
+                            <RotateCw className={`w-3 h-3 text-emerald-600 ${isSpinning ? 'animate-spin' : ''}`} />
+                            <span>{isSpinning ? 'Tracking...' : '🔄 Live Track'}</span>
+                          </button>
+
+                          {rec.mode === 'online' ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center gap-1">
+                              <Globe className="w-3 h-3 text-indigo-600" /> Online Mode
+                            </span>
+                          ) : isLeft ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> Left Office Area
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Inside Office
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Live Track Refresh Button */}
-                        <button
-                          onClick={() => refreshSingleStudentLiveLocation(recId)}
-                          disabled={isSpinning}
-                          title="Fetch current student live GPS location"
-                          className="px-2 py-1 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-all shadow-sm"
-                        >
-                          <RotateCw className={`w-3 h-3 text-emerald-600 ${isSpinning ? 'animate-spin' : ''}`} />
-                          <span>{isSpinning ? 'Tracking...' : '🔄 Live Track'}</span>
-                        </button>
-
-                        {rec.mode === 'online' ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center gap-1">
-                            <Globe className="w-3 h-3 text-indigo-600" /> Online Mode
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                          <span className="text-[11px] font-bold text-slate-500">Live Office Distance:</span>
+                          <span className={`font-extrabold font-mono text-xs ${isLeft ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            📍 {dist} meters away ({rec.mode === 'location' ? 'Location Mode' : 'Online Mode'})
                           </span>
-                        ) : isLeft ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" /> Left Office Area
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Inside Office
-                          </span>
-                        )}
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                          <span>Coordinates: <strong>{lat.toFixed(4)}, {lng.toFixed(4)}</strong></span>
+                          <span>Date: <strong>{rec.date}</strong></span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-indigo-600 font-mono bg-indigo-50/70 px-2 py-0.5 rounded-md border border-indigo-100">
+                          <span className="flex items-center gap-1 font-bold"><Network className="w-3 h-3 text-indigo-500" /> IP Address:</span>
+                          <span className="font-extrabold">{ip}</span>
+                        </div>
                       </div>
+
+                      <a href={mapLink} target="_blank" rel="noreferrer"
+                        className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>📍 View Location on Google Maps ({rec.mode.toUpperCase()})</span>
+                      </a>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Live Distance, Coordinates & IP Address */}
-                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                        <span className="text-[11px] font-bold text-slate-500">Live Office Distance:</span>
-                        <span className={`font-extrabold font-mono text-xs ${isLeft ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          📍 {dist} meters away ({rec.mode === 'location' ? 'Location Mode' : 'Online Mode'})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Coordinates: <strong>{lat.toFixed(4)}, {lng.toFixed(4)}</strong></span>
-                        <span>Date: <strong>{rec.date}</strong></span>
-                      </div>
-
-                      {/* Student IP Address display directly below location */}
-                      <div className="flex items-center justify-between text-[10px] text-indigo-600 font-mono bg-indigo-50/70 px-2 py-0.5 rounded-md border border-indigo-100">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Network className="w-3 h-3 text-indigo-500" /> IP Address:
-                        </span>
-                        <span className="font-extrabold">{ip}</span>
-                      </div>
-                    </div>
-
-                    {/* View Google Maps Link */}
-                    <a
-                      href={mapLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>📍 View Location on Google Maps ({rec.mode.toUpperCase()})</span>
-                    </a>
-
-                  </div>
-                );
-              })}
-            </div>
+              {/* Location Pagination */}
+              {attendance.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <button onClick={() => setLocationPage((p) => Math.max(1, p - 1))} disabled={locationPage === 1}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40">← Prev</button>
+                  <span className="text-xs text-slate-500 font-semibold">
+                    Page {locationPage} of {Math.ceil(attendance.length / PAGE_SIZE)} ({attendance.length} records)
+                  </span>
+                  <button onClick={() => setLocationPage((p) => Math.min(Math.ceil(attendance.length / PAGE_SIZE), p + 1))} disabled={locationPage === Math.ceil(attendance.length / PAGE_SIZE)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40">Next →</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -541,19 +613,30 @@ export default function AdminDashboard({ currentUser }) {
               <h3 className="text-sm font-bold text-slate-900">Guest Visitors & Link Sharing Tracker</h3>
               <p className="text-xs text-slate-500">Tracks unauthenticated users who opened the website link with GPS Location</p>
             </div>
-            <button
-              onClick={fetchAttendanceData}
-              className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
-            >
-              <RotateCw className="w-3 h-3" /> Refresh Guests
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchAttendanceData}
+                className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
+              >
+                <RotateCw className="w-3 h-3" /> Refresh
+              </button>
+              {guestLogs.length > 0 && (
+                <button
+                  onClick={() => setDeleteConfirm('all')}
+                  className="text-xs text-rose-500 font-bold hover:underline flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Delete All
+                </button>
+              )}
+            </div>
           </div>
 
           {guestLogs.length === 0 ? (
             <p className="py-8 text-center text-slate-400 text-xs italic">No guest visits recorded yet.</p>
           ) : (
-            <div className="space-y-3">
-              {guestLogs.map((log) => {
+            <>
+              <div className="space-y-3">
+              {guestLogs.slice((guestPage - 1) * PAGE_SIZE, guestPage * PAGE_SIZE).map((log) => {
                 const lat = log.locationData?.latitude || 28.6140;
                 const lng = log.locationData?.longitude || 77.2091;
                 const dist = log.locationData?.distanceMeters || 0;
@@ -572,12 +655,30 @@ export default function AdminDashboard({ currentUser }) {
                         </div>
                       </div>
 
-                      <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-extrabold font-mono flex items-center gap-1 border border-slate-300">
-                        <Network className="w-3.5 h-3.5 text-indigo-600" /> IP: {log.ipAddress}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Per-guest Refresh button */}
+                        <button
+                          onClick={() => refreshGuest(log.id)}
+                          disabled={guestRefreshing[log.id]}
+                          title="Refresh this guest's data"
+                          className="p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-600 transition-colors"
+                        >
+                          <RotateCw className={`w-3.5 h-3.5 ${guestRefreshing[log.id] ? 'animate-spin' : ''}`} />
+                        </button>
+                        <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-extrabold font-mono flex items-center gap-1 border border-slate-300">
+                          <Network className="w-3.5 h-3.5 text-indigo-600" /> IP: {log.ipAddress}
+                        </span>
+                        <button
+                          onClick={() => { setDeleteTargetId(log.id); setDeleteConfirm('single'); }}
+                          className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-500 transition-colors"
+                          title="Delete this guest log"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Guest Location & Office Distance Card (Same as Student format) */}
+                    {/* Guest Location & Office Distance Card */}
                     <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-1">
                         <span className="text-[11px] font-bold text-slate-500">Guest Office Distance:</span>
@@ -587,8 +688,28 @@ export default function AdminDashboard({ currentUser }) {
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Coordinates: <strong>{lat.toFixed(4)}, {lng.toFixed(4)}</strong></span>
-                        <span>Access Time: <strong>{new Date(log.timestamp).toLocaleTimeString()}</strong></span>
+                        <span>Coordinates: <strong>{lat.toFixed(5)}, {lng.toFixed(5)}</strong></span>
+                        <span>Time: <strong>{new Date(log.timestamp).toLocaleTimeString()}</strong></span>
+                      </div>
+
+                      {/* GPS Accuracy badge */}
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          log.locationData?.accuracy
+                            ? log.locationData.accuracy <= 20
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : log.locationData.accuracy <= 100
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-rose-100 text-rose-600'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          📡 GPS Accuracy: {log.locationData?.accuracy ? `±${log.locationData.accuracy}m` : 'Unknown'}
+                        </span>
+                        {log.lastRefreshed && (
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            Refreshed: {new Date(log.lastRefreshed).toLocaleTimeString()}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -630,7 +751,21 @@ export default function AdminDashboard({ currentUser }) {
                   </div>
                 );
               })}
-            </div>
+              </div>
+
+              {/* Guest Pagination */}
+              {guestLogs.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <button onClick={() => setGuestPage((p) => Math.max(1, p - 1))} disabled={guestPage === 1}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40">← Prev</button>
+                  <span className="text-xs text-slate-500 font-semibold">
+                    Page {guestPage} of {Math.ceil(guestLogs.length / PAGE_SIZE)} ({guestLogs.length} guests)
+                  </span>
+                  <button onClick={() => setGuestPage((p) => Math.min(Math.ceil(guestLogs.length / PAGE_SIZE), p + 1))} disabled={guestPage === Math.ceil(guestLogs.length / PAGE_SIZE)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40">Next →</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -836,6 +971,37 @@ export default function AdminDashboard({ currentUser }) {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Popup */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-xs bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto">
+              <X className="w-6 h-6 text-rose-500" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                {deleteConfirm === 'all' ? 'Delete All Guests?' : 'Delete This Guest?'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {deleteConfirm === 'all'
+                  ? `Sare ${guestLogs.length} guest records delete ho jayenge. Yeh wapas nahi aayenge!`
+                  : 'Yeh guest record permanently delete ho jayega.'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setDeleteConfirm(null); setDeleteTargetId(null); }}
+                className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200"
+              >Cancel</button>
+              <button
+                onClick={() => deleteConfirm === 'all' ? deleteAllGuests() : deleteGuest(deleteTargetId)}
+                className="flex-1 py-2.5 rounded-2xl bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 shadow-sm"
+              >🗑️ Delete</button>
+            </div>
           </div>
         </div>
       )}

@@ -4,12 +4,16 @@ import { Fingerprint, MapPin, Globe, Clock, Mic, FileText, CheckCircle2, RotateC
 import VoiceRecorder from './VoiceRecorder';
 
 export default function StudentDashboard({ currentUser, onOpenAuth }) {
-  const [mode, setMode] = useState('offline'); // Default 'offline' (Location), option 'online'
+  const [mode, setMode] = useState('offline');
   const [currentCoords, setCurrentCoords] = useState(null);
   const [distFromCampus, setDistFromCampus] = useState(null);
   const [refreshingGps, setRefreshingGps] = useState(false);
   const [refreshingLogs, setRefreshingLogs] = useState(false);
   const [gpsPermissionDenied, setGpsPermissionDenied] = useState(false);
+
+  // Office location fetched from admin settings
+  const [officeLat, setOfficeLat] = useState(28.6139);
+  const [officeLng, setOfficeLng] = useState(77.2090);
 
   const [activeSession, setActiveSession] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -49,10 +53,27 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
 
   useEffect(() => {
     fetchRecords();
+    // Fetch office location first, then check GPS with correct office coords
+    fetch('/api/admin?month=' + new Date().toISOString().substring(0, 7))
+      .then((r) => r.json())
+      .then((data) => {
+        let lat = 28.6139, lng = 77.2090;
+        if (data.settings) {
+          lat = data.settings.campusLat;
+          lng = data.settings.campusLng;
+          setOfficeLat(lat);
+          setOfficeLng(lng);
+        }
+        // Now trigger GPS check with correct office coords
+        checkLocation(lat, lng);
+      })
+      .catch(() => {
+        checkLocation(officeLat, officeLng);
+      });
   }, [currentUser]);
 
-  // GPS Check Function (Triggers Browser Permission Popup on Page Load)
-  const checkLocation = () => {
+  // GPS Check Function — accepts office coords directly to avoid stale state
+  const checkLocation = (oLat = officeLat, oLng = officeLng) => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
       return;
@@ -64,22 +85,18 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
       (pos) => {
         const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
         setCurrentCoords(coords);
-        const d = calcDist(pos.coords.latitude, pos.coords.longitude, 28.6139, 77.2090);
+        const d = calcDist(pos.coords.latitude, pos.coords.longitude, oLat, oLng);
         setDistFromCampus(d);
         setRefreshingGps(false);
         setGpsPermissionDenied(false);
       },
-      (err) => {
+      () => {
         setRefreshingGps(false);
         setGpsPermissionDenied(true);
       },
-      { enableHighAccuracy: true, maximumAge: 0 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
   };
-
-  useEffect(() => {
-    checkLocation();
-  }, []);
 
   function calcDist(lat1, lon1, lat2, lon2) {
     const R = 6371e3;

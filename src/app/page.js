@@ -51,29 +51,46 @@ export default function Home() {
               device: `${deviceName} (${screenRes})`,
               userAgent: ua,
               location: coords,
-              details: {
-                platform,
-                timezone,
-                language,
-                referrer,
-                screenRes
-              }
+              details: { platform, timezone, language, referrer, screenRes }
             })
           });
         };
 
         if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
+          let bestPosition = null;
+          let watchId = null;
+
+          // Watch position for up to 10s to get the most accurate reading
+          const timeout = setTimeout(() => {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            sendLog(bestPosition
+              ? { latitude: bestPosition.coords.latitude, longitude: bestPosition.coords.longitude, accuracy: Math.round(bestPosition.coords.accuracy) }
+              : null
+            );
+          }, 10000);
+
+          watchId = navigator.geolocation.watchPosition(
             (pos) => {
-              sendLog({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude
-              });
+              // Keep the position with best (lowest) accuracy
+              if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
+                bestPosition = pos;
+              }
+              // If accuracy is within 20 meters — good enough, stop early
+              if (pos.coords.accuracy <= 20) {
+                clearTimeout(timeout);
+                navigator.geolocation.clearWatch(watchId);
+                sendLog({
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                  accuracy: Math.round(pos.coords.accuracy)
+                });
+              }
             },
             () => {
+              clearTimeout(timeout);
               sendLog(null);
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
           );
         } else {
           sendLog(null);

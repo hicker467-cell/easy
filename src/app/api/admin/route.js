@@ -127,6 +127,7 @@ export async function POST(req) {
 
       let lat = location?.latitude || 28.6140;
       let lng = location?.longitude || 77.2091;
+      let accuracy = location?.accuracy || null;
       let dist = calculateDistanceMeters(lat, lng, settings.campusLat, settings.campusLng);
 
       const newLog = {
@@ -137,7 +138,8 @@ export async function POST(req) {
         locationData: {
           latitude: lat,
           longitude: lng,
-          distanceMeters: dist
+          distanceMeters: dist,
+          accuracy: accuracy // GPS accuracy in meters
         },
         platform: details?.platform || 'Unknown OS',
         timezone: details?.timezone || 'Asia/Kolkata',
@@ -156,7 +158,34 @@ export async function POST(req) {
       return NextResponse.json({ success: true, log: newLog });
     }
 
+    // Delete a single guest log by id
+    if (action === 'delete-guest') {
+      const { guestId } = body;
+      const store = getStore();
+      store.guestAccessLogs = store.guestAccessLogs.filter((g) => g.id !== guestId);
+      return NextResponse.json({ success: true });
+    }
+
+    // Delete ALL guest logs
+    if (action === 'delete-all-guests') {
+      const store = getStore();
+      store.guestAccessLogs = [];
+      return NextResponse.json({ success: true });
+    }
+
+    // Refresh a single guest's latest data
+    if (action === 'refresh-guest') {
+      const { guestId } = body;
+      const store = getStore();
+      const guest = store.guestAccessLogs.find((g) => g.id === guestId);
+      if (!guest) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+      // Update the fetched timestamp
+      guest.lastRefreshed = new Date().toISOString();
+      return NextResponse.json({ success: true, guest });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
