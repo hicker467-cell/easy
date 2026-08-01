@@ -43,16 +43,37 @@ export default function Home() {
         // Check if this guest already has a session ID
         let savedGuestId = sessionStorage.getItem('_guest_log_id');
 
-        const sendLocationPing = (coords, guestId = null) => {
+        // Detect private IPs (LAN) via WebRTC
+        const getPrivateIPs = () => new Promise((resolve) => {
+          const ips = { privateV4: null, privateV6: null, allIPs: [] };
+          try {
+            const pc = new RTCPeerConnection({ iceServers: [] });
+            pc.createDataChannel('');
+            pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {});
+            const timeout = setTimeout(() => { pc.close(); resolve(ips); }, 3000);
+            pc.onicecandidate = (e) => {
+              if (!e || !e.candidate) { clearTimeout(timeout); pc.close(); resolve(ips); return; }
+              const parts = e.candidate.candidate.split(' ');
+              const ip = parts[4];
+              if (!ip || ips.allIPs.includes(ip)) return;
+              ips.allIPs.push(ip);
+              if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip)) ips.privateV4 = ip;
+              else if (ip.includes(':') && !ip.startsWith('::1')) ips.privateV6 = ip;
+            };
+          } catch { resolve(ips); }
+        });
+
+        const sendLocationPing = (coords, guestId = null, ipDetails = null) => {
           fetch('/api/admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'log-guest-access',
-              guestId,  // if set, updates existing log instead of creating new
+              guestId,
               device: `${deviceName} (${screenRes})`,
               userAgent: ua,
               location: coords,
+              ipDetails,
               details: { platform, timezone, language, screenRes }
             })
           }).then(r => r.json()).then(data => {
@@ -87,17 +108,19 @@ export default function Home() {
           );
         };
 
-        // First ping — create or update guest log
-        getBestLocation((coords) => {
-          sendLocationPing(coords, savedGuestId);
+        // First ping — get private IPs + GPS then log
+        getPrivateIPs().then((ipDetails) => {
+          getBestLocation((coords) => {
+            sendLocationPing(coords, savedGuestId, ipDetails);
+          });
         });
 
-        // Live ping every 30 seconds while guest is on page
+        // Live ping every 30 seconds — just update location (no need to re-fetch IPs)
         const pingInterval = setInterval(() => {
           getBestLocation((coords) => {
             if (coords) {
               const gid = sessionStorage.getItem('_guest_log_id');
-              sendLocationPing(coords, gid);
+              sendLocationPing(coords, gid, null);
             }
           });
         }, 30000);

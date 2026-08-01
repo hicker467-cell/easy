@@ -702,7 +702,7 @@ export default function AdminDashboard({ currentUser }) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {/* Per-guest Refresh button */}
                         <button
                           onClick={() => refreshGuest(log.id)}
@@ -712,9 +712,6 @@ export default function AdminDashboard({ currentUser }) {
                         >
                           <RotateCw className={`w-3.5 h-3.5 ${guestRefreshing[log.id] ? 'animate-spin' : ''}`} />
                         </button>
-                        <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-extrabold font-mono flex items-center gap-1 border border-slate-300">
-                          <Network className="w-3.5 h-3.5 text-indigo-600" /> IP: {log.ipAddress}
-                        </span>
                         <button
                           onClick={() => { setDeleteTargetId(log.id); setDeleteConfirm('single'); }}
                           className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-500 transition-colors"
@@ -723,6 +720,31 @@ export default function AdminDashboard({ currentUser }) {
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                    </div>
+
+                    {/* IP Address Details — Public + Private IPv4/IPv6 */}
+                    <div className="grid grid-cols-1 gap-1.5 text-[10px] font-mono">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <span className="text-indigo-500 font-bold flex items-center gap-1"><Network className="w-3 h-3" /> Public IP (WAN)</span>
+                        <span className="font-extrabold text-indigo-800">{log.publicIp || log.ipAddress || '—'}</span>
+                      </div>
+                      {log.privateIpV4 && (
+                        <div className="flex items-center justify-between px-2.5 py-1.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <span className="text-emerald-600 font-bold flex items-center gap-1"><Network className="w-3 h-3" /> Private IPv4 (LAN)</span>
+                          <span className="font-extrabold text-emerald-800">{log.privateIpV4}</span>
+                        </div>
+                      )}
+                      {log.privateIpV6 && (
+                        <div className="flex items-center justify-between px-2.5 py-1.5 bg-violet-50 rounded-xl border border-violet-100">
+                          <span className="text-violet-600 font-bold flex items-center gap-1"><Network className="w-3 h-3" /> Private IPv6</span>
+                          <span className="font-extrabold text-violet-800 truncate max-w-[160px]">{log.privateIpV6}</span>
+                        </div>
+                      )}
+                      {log.allIPs?.length > 2 && (
+                        <div className="px-2.5 py-1 bg-slate-50 rounded-xl border border-slate-100 text-slate-400">
+                          All detected: {log.allIPs.join(' • ')}
+                        </div>
+                      )}
                     </div>
 
                     {/* Guest Location & Office Distance Card */}

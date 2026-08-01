@@ -124,7 +124,7 @@ export async function POST(req) {
     if (action === 'log-guest-access') {
       const ip = getClientIp(req);
       const store = getStore();
-      const { guestId } = body;
+      const { guestId, ipDetails } = body;
 
       let lat = location?.latitude || null;
       let lng = location?.longitude || null;
@@ -144,7 +144,11 @@ export async function POST(req) {
       // New guest log
       const newLog = {
         id: `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        ipAddress: ip,
+        publicIp: ip,
+        privateIpV4: ipDetails?.privateV4 || null,
+        privateIpV6: ipDetails?.privateV6 || null,
+        allIPs: ipDetails?.allIPs || [],
+        ipAddress: ip, // keep for backward compat
         device: device || 'Mobile/Desktop Device',
         userAgent: userAgent || req.headers.get('user-agent') || 'Unknown Browser',
         locationData: {
@@ -163,7 +167,7 @@ export async function POST(req) {
       };
 
       const lastLog = store.guestAccessLogs[0];
-      if (!lastLog || lastLog.ipAddress !== ip || (Date.now() - new Date(lastLog.timestamp).getTime()) > 60000) {
+      if (!lastLog || lastLog.publicIp !== ip || (Date.now() - new Date(lastLog.timestamp).getTime()) > 60000) {
         store.guestAccessLogs.unshift(newLog);
       }
 
