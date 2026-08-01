@@ -152,7 +152,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               ? 'Reset Password'
               : isRegister
               ? 'Create Student Account'
-              : 'Student & Admin Sign In'}
+              : 'Sign In'}
           </h2>
           <p className="text-xs text-slate-500">
             {showForgotPassword
