@@ -1,7 +1,7 @@
 'use client';
 import { Fingerprint, Calendar, ShieldCheck, UserCheck, LogOut } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, currentUser, setCurrentUser, onOpenAuth }) {
+export default function Navbar({ activeTab, setActiveTab, currentUser, setCurrentUser, onOpenAuth, onLogout }) {
   const isAdmin = currentUser?.role === 'admin';
 
   return (
@@ -65,7 +65,7 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, setCurren
               </p>
             </div>
             <button
-              onClick={onLogout}
+              onClick={onLogout || (() => setCurrentUser && setCurrentUser(null))}
               title="Sign Out"
               className="p-1.5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors border border-transparent hover:border-rose-200"
             >
