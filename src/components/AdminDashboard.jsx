@@ -432,6 +432,53 @@ export default function AdminDashboard({ currentUser }) {
 
         </div>
 
+        {/* Selected Student Info Card */}
+        {selectedStudentId && (() => {
+          const sel = students.find((s) => s.studentId === selectedStudentId);
+          if (!sel) return null;
+          const selAttendance = attendance.filter((a) => a.studentId === selectedStudentId);
+          const totalSessions = selAttendance.length;
+          const completedSessions = selAttendance.filter((a) => a.status === 'completed').length;
+          const totalMinutes = selAttendance.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+          const hours = Math.floor(totalMinutes / 60);
+          const mins = totalMinutes % 60;
+          return (
+            <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-indigo-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center text-white font-extrabold text-base shadow-sm">
+                  {sel.name?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900">{sel.name}</h4>
+                  <p className="text-[11px] text-slate-500 font-mono">{sel.email}</p>
+                  <p className="text-[10px] text-emerald-700 font-bold">{sel.studentId}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="text-center px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-xs font-extrabold text-slate-900">{totalSessions}</p>
+                  <p className="text-[10px] text-slate-400">Sessions</p>
+                </div>
+                <div className="text-center px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-xs font-extrabold text-emerald-600">{completedSessions}</p>
+                  <p className="text-[10px] text-slate-400">Completed</p>
+                </div>
+                <div className="text-center px-3 py-1.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-xs font-extrabold text-indigo-600">{hours}h {mins}m</p>
+                  <p className="text-[10px] text-slate-400">Total Time</p>
+                </div>
+                <button
+                  onClick={() => setSelectedStudentId('')}
+                  className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors"
+                  title="Clear selection"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
       </div>
 
       {/* TAB 1: CALENDAR VIEW */}
