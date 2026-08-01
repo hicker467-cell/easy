@@ -65,9 +65,9 @@ export default function Navbar({ activeTab, setActiveTab, currentUser, setCurren
               </p>
             </div>
             <button
-              onClick={() => setCurrentUser(null)}
+              onClick={onLogout}
               title="Sign Out"
-              className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-600 transition-colors"
+              className="p-1.5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors border border-transparent hover:border-rose-200"
             >
               <LogOut className="w-4 h-4" />
             </button>
