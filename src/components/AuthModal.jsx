@@ -159,7 +159,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               ? 'Enter registered email for password reset'
               : isRegister
               ? 'Register with your student details'
-              : 'Admin: sudhir@gmail.com / 1234567890'}
+              : 'Sign in with your registered email and password'}
           </p>
         </div>
 
