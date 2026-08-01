@@ -1,30 +1,61 @@
-# 📱 Student Attendance Mobile App API & Setup Guide
+# 📱 Student Attendance System — API & Mobile App Guide
 
-This document provides a complete guide and API reference for building a **Student Mobile App** (React Native, Flutter, Swift/iOS, Kotlin/Android, or Web) powered by this Next.js Backend.
-
----
-
-## 🚀 Quick Overview
-
-- **Base URL (Local Dev)**: `http://localhost:3000`
-- **Base URL (Mobile Emulator)**: `http://10.0.2.2:3000` (Android Emulator) or `http://<YOUR_LOCAL_IP>:3000`
-- **Authentication**: Email/Password login, Registration, 1-Click Google Login, and OTP Forgot Password Reset.
-- **Key Features**:
-  1. 🖐️ **1-Tap Fingerprint Punch In** (Offline Location & Online modes)
-  2. 📍 **Live GPS Coordinates & Geofence Campus Distance**
-  3. 📝 **Mandatory Punch-Out Study Notes** (Strict minimum of 30 characters)
-  4. 🎙️ **Voice Note Recording** (Audio base64 attachment)
-  5. 🔄 **Live GPS Refresh & Attendance History Logs**
+A full-featured Student Attendance System built with **Next.js 16**, **MongoDB Atlas**, **GPS Geofencing**, and a complete REST API ready for building a **React Native / Flutter Android APK**.
 
 ---
 
-## 📡 API Reference for Student Mobile App
+## 🔗 Live Backend URL
 
-### 1. Authentication API (`POST /api/auth`)
+| Environment | URL |
+|---|---|
+| Local Dev | `http://localhost:3000` |
+| Android Emulator | `http://10.0.2.2:3000` |
+| Production (Deploy on Vercel) | `https://your-vercel-url.vercel.app` |
 
-#### 🔑 A. Student Login
-- **Endpoint**: `POST /api/auth`
-- **Request Body**:
+---
+
+## 🔑 Admin Credentials
+
+| Field | Value |
+|---|---|
+| Email | `sudhir@gmail.com` |
+| Password | `1234567890` |
+
+---
+
+## ✨ Features
+
+1. 🖐️ **1-Tap Fingerprint Punch In/Out** (Offline Location & Online modes)
+2. 📍 **Live GPS Coordinates & Geofence Office Distance** (meters)
+3. 📝 **Mandatory Punch-Out Study Notes** (Min 30 characters)
+4. 🎙️ **Voice Note Recording** (Audio base64 attachment on punch-out)
+5. 🔄 **Live GPS Refresh** (Manual + Admin Live Track button)
+6. 👁️ **Guest Visitor Tracker** (IP, Device, GPS, Screen, Referrer)
+7. 📅 **Month-wise Calendar** with day-wise session logs
+8. 📤 **CSV Export** for Admin
+9. 🌐 **Google Maps Link** for every student & guest location
+10. 🔒 **Google OAuth Login** (set env keys to activate)
+
+---
+
+## 🌍 Environment Variables (`.env.local`)
+
+```env
+# MongoDB Atlas
+MONGODB_URI=your_mongodb_atlas_connection_string
+
+# Google OAuth (Optional — set to activate real Google Login)
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+---
+
+## 📡 API Reference
+
+### 1. Auth API — `POST /api/auth`
+
+#### 🔑 Login
 ```json
 {
   "action": "login",
@@ -32,24 +63,8 @@ This document provides a complete guide and API reference for building a **Stude
   "password": "yourpassword"
 }
 ```
-- **Response Success (200 OK)**:
-```json
-{
-  "success": true,
-  "user": {
-    "studentId": "STU-2026-001",
-    "name": "Rahul Sharma",
-    "email": "rahul@student.edu",
-    "role": "student"
-  }
-}
-```
 
----
-
-#### 📝 B. Student Registration
-- **Endpoint**: `POST /api/auth`
-- **Request Body**:
+#### 📝 Register
 ```json
 {
   "action": "register",
@@ -58,44 +73,16 @@ This document provides a complete guide and API reference for building a **Stude
   "password": "yourpassword"
 }
 ```
-- **Response Success (200 OK)**:
-```json
-{
-  "success": true,
-  "user": {
-    "studentId": "STU-2026-001",
-    "name": "Rahul Sharma",
-    "email": "rahul@student.edu",
-    "role": "student"
-  }
-}
-```
 
----
-
-#### 🔓 C. Forgot Password — Send OTP
-- **Endpoint**: `POST /api/auth`
-- **Request Body**:
+#### 🔓 Forgot Password — Send OTP
 ```json
 {
   "action": "forgot-password",
   "email": "rahul@student.edu"
 }
 ```
-- **Response Success**:
-```json
-{
-  "success": true,
-  "message": "OTP sent to your email! (Demo OTP: 123456)",
-  "otp": "123456"
-}
-```
 
----
-
-#### 🔢 D. Verify OTP & Reset Password
-- **Endpoint**: `POST /api/auth`
-- **Request Body**:
+#### 🔢 Reset Password
 ```json
 {
   "action": "reset-password",
@@ -104,175 +91,149 @@ This document provides a complete guide and API reference for building a **Stude
   "newPassword": "newpassword123"
 }
 ```
-- **Response Success**:
+
+#### 🔵 Google OAuth Login
 ```json
 {
-  "success": true,
-  "message": "Password reset successfully!"
+  "action": "google",
+  "credential": "<google_jwt_token>"
 }
 ```
 
 ---
 
-### 2. Attendance & Punch API (`/api/attendance`)
+### 2. Attendance API — `POST /api/attendance`
 
-#### 🖐️ A. Punch In
-- **Endpoint**: `POST /api/attendance`
-- **Request Body**:
+#### 🖐️ Punch In
 ```json
 {
   "action": "punch-in",
   "studentId": "STU-2026-001",
   "studentName": "Rahul Sharma",
-  "mode": "location", 
-  "location": {
-    "latitude": 28.6139,
-    "longitude": 77.2090
-  }
+  "mode": "location",
+  "location": { "latitude": 28.6139, "longitude": 77.2090 }
 }
 ```
-*Note: `mode` can be `"location"` (Offline Location Mode) or `"online"` (Online Mode).*
+> `mode` = `"location"` (GPS/Offline) or `"online"`
 
-- **Response Success**:
-```json
-{
-  "success": true,
-  "record": {
-    "id": "att_1710000000000",
-    "studentId": "STU-2026-001",
-    "studentName": "Rahul Sharma",
-    "date": "2026-08-01",
-    "punchInTime": "2026-08-01T14:30:00.000Z",
-    "mode": "location",
-    "locationData": {
-      "latitude": 28.6139,
-      "longitude": 77.2090,
-      "distanceMeters": 0,
-      "withinRange": true,
-      "isLeftCampus": false,
-      "ipAddress": "192.168.1.17"
-    },
-    "status": "active"
-  }
-}
-```
-
----
-
-#### 📝 B. Punch Out (Requires Min 30 Chars Study Notes)
-- **Endpoint**: `POST /api/attendance`
-- **Request Body**:
+#### 📝 Punch Out
 ```json
 {
   "action": "punch-out",
   "attendanceId": "att_1710000000000",
-  "notes": "Today I studied Next.js App Router API design and React Native GPS tracking for 3 hours.",
-  "audioNote": "data:audio/webm;base64,GkXfo59ChoEBQ..."
+  "notes": "Today I studied Next.js API design and GPS tracking for 3 hours.",
+  "audioNote": "data:audio/webm;base64,GkXfo59..."
 }
 ```
-*Note: `notes` must be at least 30 characters long.*
+> `notes` must be at least **30 characters**
 
-- **Response Success**:
-```json
-{
-  "success": true,
-  "record": {
-    "id": "att_1710000000000",
-    "studentId": "STU-2026-001",
-    "punchOutTime": "2026-08-01T17:30:00.000Z",
-    "durationMinutes": 180,
-    "notes": "Today I studied Next.js App Router API design and React Native GPS tracking for 3 hours.",
-    "status": "completed"
-  }
-}
-```
-
----
-
-#### 🔄 C. Refresh GPS Location / Live Ping
-- **Endpoint**: `POST /api/attendance`
-- **Request Body**:
+#### 🔄 Update Live GPS
 ```json
 {
   "action": "update-location",
   "attendanceId": "att_1710000000000",
-  "location": {
-    "latitude": 28.6145,
-    "longitude": 77.2095
-  }
+  "location": { "latitude": 28.6145, "longitude": 77.2095 }
 }
 ```
-- **Response Success**:
-```json
-{
-  "success": true
-}
+
+#### 📜 Get Attendance Logs
+```
+GET /api/attendance?studentId=STU-2026-001
 ```
 
 ---
 
-#### 📜 D. Get Student Attendance Logs & Active Session
-- **Endpoint**: `GET /api/attendance?studentId=STU-2026-001`
-- **Response Success**:
-```json
-{
-  "success": true,
-  "records": [
-    {
-      "id": "att_1710000000000",
-      "studentId": "STU-2026-001",
-      "date": "2026-08-01",
-      "punchInTime": "2026-08-01T14:30:00.000Z",
-      "punchOutTime": "2026-08-01T17:30:00.000Z",
-      "mode": "location",
-      "status": "completed",
-      "notes": "Today I studied Next.js App Router API design and React Native GPS tracking for 3 hours."
-    }
-  ]
-}
+### 3. Admin API — `GET /api/admin`
+
 ```
+GET /api/admin?month=2026-08
+GET /api/admin?month=2026-08&studentId=STU-2026-001
+```
+
+Returns: `students`, `attendance`, `guestLogs`, `settings`
 
 ---
 
-## 📱 Mobile App Code Snippet (React Native / JavaScript)
+## 📱 React Native Example
 
 ```javascript
-// Example Punch In Call from Mobile App
-async function punchInStudent(studentId, studentName, lat, lng, mode = 'location') {
-  try {
-    const response = await fetch('http://10.0.2.2:3000/api/attendance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'punch-in',
-        studentId: studentId,
-        studentName: studentName,
-        mode: mode,
-        location: { latitude: lat, longitude: lng }
-      })
-    });
-    const data = await response.json();
-    if (data.success) {
-      console.log('Punched in successfully!', data.record);
-    } else {
-      alert(data.error);
-    }
-  } catch (error) {
-    console.error('Punch in error:', error);
-  }
+const BASE_URL = 'http://10.0.2.2:3000'; // Android Emulator
+
+async function punchIn(studentId, studentName, lat, lng) {
+  const res = await fetch(`${BASE_URL}/api/attendance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'punch-in',
+      studentId,
+      studentName,
+      mode: 'location',
+      location: { latitude: lat, longitude: lng }
+    })
+  });
+  return await res.json();
 }
 ```
 
 ---
 
-## 🛠️ How to Run Backend locally
+## 🤖 APK Build Guide (React Native)
+
+You can build a native Android APK by connecting this Next.js backend to a React Native frontend:
+
+### Step 1 — Create React Native App
+```bash
+npx react-native@latest init StudentApp
+cd StudentApp
+```
+
+### Step 2 — Install Required Libraries
+```bash
+npm install @react-native-community/geolocation
+npm install react-native-fingerprint-scanner
+npm install @react-native-async-storage/async-storage
+```
+
+### Step 3 — Set Backend URL in App
+```javascript
+// config.js
+export const API_BASE = 'https://your-vercel-url.vercel.app'; // Production
+// OR for local: 'http://10.0.2.2:3000'
+```
+
+### Step 4 — Build APK
+```bash
+cd android
+./gradlew assembleRelease
+```
+APK will be at: `android/app/build/outputs/apk/release/app-release.apk`
+
+---
+
+## 🛠️ Run Backend Locally
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 npm install
 
-# 2. Start Dev Server
+# Start Dev Server
 npm run dev
+# → http://localhost:3000
 
-# Backend will run on http://localhost:3000
+# Production Build
+npm run build
 ```
+
+---
+
+## 🚀 Deploy on Vercel (Free)
+
+```bash
+npm install -g vercel
+vercel
+```
+
+Add environment variables in Vercel Dashboard:
+- `MONGODB_URI`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
