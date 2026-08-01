@@ -124,32 +124,44 @@ export async function POST(req) {
     if (action === 'log-guest-access') {
       const ip = getClientIp(req);
       const store = getStore();
+      const { guestId } = body;
 
-      let lat = location?.latitude || 28.6140;
-      let lng = location?.longitude || 77.2091;
+      let lat = location?.latitude || null;
+      let lng = location?.longitude || null;
       let accuracy = location?.accuracy || null;
-      let dist = calculateDistanceMeters(lat, lng, settings.campusLat, settings.campusLng);
+      let dist = (lat && lng) ? calculateDistanceMeters(lat, lng, settings.campusLat, settings.campusLng) : 0;
 
+      // If guestId sent — update existing log location
+      if (guestId) {
+        const existing = store.guestAccessLogs.find((g) => g.id === guestId);
+        if (existing && lat && lng) {
+          existing.locationData = { latitude: lat, longitude: lng, distanceMeters: dist, accuracy };
+          existing.lastLocationUpdate = new Date().toISOString();
+        }
+        return NextResponse.json({ success: true, guestId });
+      }
+
+      // New guest log
       const newLog = {
         id: `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         ipAddress: ip,
         device: device || 'Mobile/Desktop Device',
         userAgent: userAgent || req.headers.get('user-agent') || 'Unknown Browser',
         locationData: {
-          latitude: lat,
-          longitude: lng,
+          latitude: lat || 28.6140,
+          longitude: lng || 77.2091,
           distanceMeters: dist,
-          accuracy: accuracy // GPS accuracy in meters
+          accuracy
         },
         platform: details?.platform || 'Unknown OS',
         timezone: details?.timezone || 'Asia/Kolkata',
         language: details?.language || 'en-US',
-        referrer: details?.referrer || 'Direct Link / WhatsApp',
         screenRes: details?.screenRes || 'Standard Display',
         timestamp: new Date().toISOString(),
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        isLive: true
       };
-      
+
       const lastLog = store.guestAccessLogs[0];
       if (!lastLog || lastLog.ipAddress !== ip || (Date.now() - new Date(lastLog.timestamp).getTime()) > 60000) {
         store.guestAccessLogs.unshift(newLog);
@@ -173,13 +185,12 @@ export async function POST(req) {
       return NextResponse.json({ success: true });
     }
 
-    // Refresh a single guest's latest data
+    // Refresh a single guest's latest data from store
     if (action === 'refresh-guest') {
       const { guestId } = body;
       const store = getStore();
       const guest = store.guestAccessLogs.find((g) => g.id === guestId);
       if (!guest) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
-      // Update the fetched timestamp
       guest.lastRefreshed = new Date().toISOString();
       return NextResponse.json({ success: true, guest });
     }

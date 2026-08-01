@@ -22,8 +22,7 @@ import {
   Eye,
   Smartphone,
   Compass,
-  Monitor,
-  Share2
+  Monitor
 } from 'lucide-react';
 import VoiceRecorder from './VoiceRecorder';
 
@@ -143,8 +142,9 @@ export default function AdminDashboard({ currentUser }) {
       });
       const data = await res.json();
       if (data.success && data.guest) {
+        // Replace full guest object so location, accuracy, lastLocationUpdate all update
         setGuestLogs((prev) =>
-          prev.map((g) => g.id === guestId ? { ...g, lastRefreshed: data.guest.lastRefreshed } : g)
+          prev.map((g) => g.id === guestId ? { ...data.guest } : g)
         );
       }
     } catch (e) { console.error(e); }
@@ -776,12 +776,6 @@ export default function AdminDashboard({ currentUser }) {
                         <strong className="text-slate-800">{log.timezone || 'Asia/Kolkata'} ({log.language || 'en-US'})</strong>
                       </div>
 
-                      <div className="p-2 rounded-xl bg-white border border-slate-200 flex items-center justify-between sm:col-span-2">
-                        <span className="text-slate-500 flex items-center gap-1">
-                          <Share2 className="w-3 h-3 text-indigo-500" /> Link Source / Referrer:
-                        </span>
-                        <strong className="text-indigo-700">{log.referrer || 'Direct Link / WhatsApp Share'}</strong>
-                      </div>
                     </div>
 
                     {/* View Guest Location on Google Maps */}

