@@ -120,29 +120,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Handle 1-Click Google Login
-  const handleGoogleLogin = async () => {
+  // Real Google OAuth via NextAuth
+  const handleGoogleLogin = () => {
     setLoading(true);
     setErrorMsg('');
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'google',
-          name: 'Google Student',
-          email: 'google_' + Date.now() + '@gmail.com' // unique placeholder
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
-      }
-    } catch (err) {
-      setErrorMsg('Google Login failed');
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to NextAuth Google OAuth — will come back to / with session
+    window.location.href = '/api/auth/signin/google?callbackUrl=' + encodeURIComponent(window.location.origin + '/?google_callback=1');
   };
 
   return (
