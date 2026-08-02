@@ -120,7 +120,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '497495591959-3ul54sp5nkivus4jgpdnl5pco13db0o2.apps.googleusercontent.com';
 
   // Google Identity Services SDK Initialization
   useEffect(() => {
