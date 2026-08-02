@@ -173,45 +173,65 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  const performDirectGoogleAuth = async () => {
-    try {
-      let gEmail = email.trim();
-      if (!gEmail) {
-        gEmail = 'google_student_' + Math.floor(1000 + Math.random() * 9000) + '@gmail.com';
-      }
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'google',
-          name: name.trim() || 'Google Student',
-          email: gEmail
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
-      }
-    } catch (err) {
-      setErrorMsg('Google Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Google OAuth Account Login
+  // Real Google OAuth 2.0 Account Picker & Consent Popup
   const handleGoogleLogin = () => {
     setLoading(true);
     setErrorMsg('');
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          performDirectGoogleAuth();
-        }
-      });
-    } else {
-      performDirectGoogleAuth();
+
+    const clientId = '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
+
+    // 1. Try Google Identity Services Token Client Popup (Real Google Select Account + Consent Allow)
+    if (window.google?.accounts?.oauth2) {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'email profile',
+          callback: async (tokenResponse) => {
+            if (tokenResponse?.access_token) {
+              try {
+                // Fetch real user email & name from Google UserInfo API
+                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                const googleUser = await userInfoRes.json();
+                if (googleUser?.email) {
+                  const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'google',
+                      email: googleUser.email,
+                      name: googleUser.name || googleUser.email.split('@')[0]
+                    })
+                  });
+                  const data = await res.json();
+                  if (data.success && data.user) {
+                    onLoginSuccess(data.user);
+                  } else {
+                    throw new Error(data.error || 'Google login failed');
+                  }
+                }
+              } catch (e) {
+                setErrorMsg('Could not fetch Google profile: ' + e.message);
+              } finally {
+                setLoading(false);
+              }
+            } else {
+              setLoading(false);
+            }
+          }
+        });
+        client.requestAccessToken({ prompt: 'consent select_account' });
+        return;
+      } catch (err) {
+        console.error(err);
+      }
     }
+
+    // 2. Fallback: Google OAuth redirect URL directly to accounts.google.com with consent prompt
+    const redirectUri = window.location.origin;
+    const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email%20profile&prompt=consent%20select_account`;
+    window.location.href = googleOAuthUrl;
   };
 
   return (

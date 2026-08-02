@@ -25,6 +25,46 @@ export default function Home() {
       console.error(e);
     }
 
+    // Check if returning from Google OAuth redirect (access_token in URL hash)
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+      try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        if (accessToken) {
+          fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          })
+            .then((r) => r.json())
+            .then((googleUser) => {
+              if (googleUser?.email) {
+                fetch('/api/auth', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'google',
+                    email: googleUser.email,
+                    name: googleUser.name || googleUser.email.split('@')[0]
+                  })
+                })
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (data.success && data.user) {
+                      setCurrentUser(data.user);
+                      localStorage.setItem('geo_current_user', JSON.stringify(data.user));
+                      if (data.user.role === 'admin') setActivePortalTab('admin');
+                      window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                  })
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     // Check NextAuth session for Google OAuth return
     fetch('/api/auth/session')
       .then((res) => res.json())
