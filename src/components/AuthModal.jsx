@@ -120,45 +120,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // 1-Click Google Account Login
-  const handleGoogleLogin = async () => {
+  // Google OAuth Account Login
+  const handleGoogleLogin = () => {
     setLoading(true);
     setErrorMsg('');
-
-    let gEmail = email.trim();
-    if (!gEmail) {
-      const input = window.prompt('Enter your Google Email address:', 'student.google@gmail.com');
-      if (!input || !input.trim()) {
-        setLoading(false);
-        return;
-      }
-      gEmail = input.trim();
-    }
-
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'google',
-          name: name.trim() || gEmail.split('@')[0] || 'Google Student',
-          email: gEmail
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Google Login failed');
-      }
-
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Google Login failed');
-    } finally {
-      setLoading(false);
-    }
+    // Direct Google OAuth redirect — opens Google's official account picker screen
+    window.location.href = '/api/auth/signin/google?callbackUrl=' + encodeURIComponent(window.location.origin);
   };
 
   return (
