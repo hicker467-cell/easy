@@ -120,15 +120,16 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
+  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
+
   // Google Identity Services SDK Initialization
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const client_id = '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
 
     const initGsi = () => {
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
-          client_id,
+          client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
           auto_select: false
         });
@@ -178,7 +179,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setLoading(true);
     setErrorMsg('');
 
-    const clientId = '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
+    const clientId = GOOGLE_CLIENT_ID;
 
     // 1. Try Google Identity Services Token Client Popup (Real Google Select Account + Consent Allow)
     if (window.google?.accounts?.oauth2) {
