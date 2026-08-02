@@ -92,7 +92,7 @@ export default function VoiceRecorder({ onAudioRecorded, label = "Record Voice N
   };
 
   return (
-    <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-slate-200">
+    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800">
       <div className="flex items-center justify-between gap-3">
         
         {!audioUrl && !isRecording && (

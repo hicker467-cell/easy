@@ -24,10 +24,10 @@ import {
   Compass,
   Monitor
 } from 'lucide-react';
-import VoiceRecorder from './VoiceRecorder';
 
 export default function AdminDashboard({ currentUser }) {
   const [adminTab, setAdminTab] = useState('calendar'); // 'calendar' | 'location' | 'guests'
+  const [adminSubTab, setAdminSubTab] = useState('calendar'); // 'calendar' | 'logs'
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +42,22 @@ export default function AdminDashboard({ currentUser }) {
   const [calendarPage, setCalendarPage] = useState(1);
   const [locationPage, setLocationPage] = useState(1);
   const [guestPage, setGuestPage] = useState(1);
+  const [studentDirectoryPage, setStudentDirectoryPage] = useState(1);
   const PAGE_SIZE = 10;
+  const totalCalendarPages = Math.ceil((attendance?.length || 0) / PAGE_SIZE) || 1;
+  const paginatedAttendance = attendance.slice((calendarPage - 1) * PAGE_SIZE, calendarPage * PAGE_SIZE);
+
+  // Today KPI Statistics
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayRecords = attendance.filter((r) => r.date === todayStr);
+  const todayPresentStudentIds = new Set(todayRecords.map((r) => r.studentId));
+  const presentTodayCount = todayPresentStudentIds.size;
+  const absentTodayCount = Math.max(0, students.length - presentTodayCount);
+  const todayAttendanceRate = students.length > 0 ? Math.round((presentTodayCount / students.length) * 100) : 0;
+
+  // Student delete state
+  const [deleteStudentConfirmModal, setDeleteStudentConfirmModal] = useState(null);
+  const [deleteStudentSubmitting, setDeleteStudentSubmitting] = useState(false);
 
   // Guest delete state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -155,6 +170,31 @@ export default function AdminDashboard({ currentUser }) {
   useEffect(() => {
     fetchAttendanceData();
   }, [selectedMonth, selectedStudentId]);
+
+  const handleConfirmDeleteStudent = async () => {
+    if (!deleteStudentConfirmModal?.studentId) return;
+    setDeleteStudentSubmitting(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete-student',
+          targetStudentId: deleteStudentConfirmModal.studentId
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStudents((prev) => prev.filter((s) => s.studentId !== deleteStudentConfirmModal.studentId));
+        setAttendance((prev) => prev.filter((a) => a.studentId !== deleteStudentConfirmModal.studentId));
+        setDeleteStudentConfirmModal(null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeleteStudentSubmitting(false);
+    }
+  };
 
   const verifyPin = async (e) => {
     e.preventDefault();
@@ -269,16 +309,17 @@ export default function AdminDashboard({ currentUser }) {
     document.body.removeChild(link);
   };
 
-  // Build Calendar Days Array (1 to 31)
+  // Build Calendar Days Array (1 to 31) with Day of Week
   const getDaysInMonth = (yearMonthStr) => {
     const [y, m] = yearMonthStr.split('-').map(Number);
     const date = new Date(y, m - 1, 1);
     const days = [];
     while (date.getMonth() === m - 1) {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       days.push({
         dayNumber: date.getDate(),
         dateStr,
+        dayOfWeek: date.getDay(), // 0 = Sun, 1 = Mon ...
         dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
       });
       date.setDate(date.getDate() + 1);
@@ -304,6 +345,16 @@ export default function AdminDashboard({ currentUser }) {
     return nameMatch || idMatch || emailMatch;
   });
 
+  const STUDENT_PAGE_SIZE = 8;
+  const totalStudentDirectoryPages = Math.ceil((filteredStudents?.length || 0) / STUDENT_PAGE_SIZE) || 1;
+  const paginatedStudents = filteredStudents.slice((studentDirectoryPage - 1) * STUDENT_PAGE_SIZE, studentDirectoryPage * STUDENT_PAGE_SIZE);
+
+  const studentMap = (students || []).reduce((acc, s) => {
+    if (s.studentId) acc[s.studentId] = s;
+    if (s.email) acc[s.email.toLowerCase()] = s;
+    return acc;
+  }, {});
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       
@@ -311,9 +362,12 @@ export default function AdminDashboard({ currentUser }) {
       <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
         
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Admin Portal</h2>
-            <p className="text-xs text-slate-500">Student attendance logs & office location tracking</p>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="SSSAM ACADEMY Logo" className="w-10 h-10 object-contain rounded-xl bg-slate-50 p-0.5 border border-slate-100" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">SSSAM ACADEMY — Admin Portal</h2>
+              <p className="text-xs text-slate-500">Student attendance logs & office location tracking</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -340,7 +394,7 @@ export default function AdminDashboard({ currentUser }) {
 
             <button
               onClick={exportCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-sm hover:bg-emerald-600"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-sm hover:bg-emerald-600 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>CSV</span>
@@ -348,11 +402,46 @@ export default function AdminDashboard({ currentUser }) {
           </div>
         </div>
 
-        {/* 3 Sub-Tabs: Calendar vs Student Location vs Guest Visitors (Security) */}
-        <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
+        {/* Today's Live Attendance & Student KPI Summary Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-left space-y-1">
+            <span className="text-[10px] uppercase font-extrabold text-slate-500 block">Total Students</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-black text-slate-900">👥 {students.length}</span>
+              <span className="text-[11px] font-bold text-slate-400">Enrolled</span>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-200 text-left space-y-1">
+            <span className="text-[10px] uppercase font-extrabold text-emerald-700 block">Present Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-black text-emerald-950">🟢 {presentTodayCount}</span>
+              <span className="text-xs font-black text-emerald-700 font-mono">{todayAttendanceRate}%</span>
+            </div>
+          </div>
+
+          <div className="bg-rose-50 p-3.5 rounded-2xl border border-rose-200 text-left space-y-1">
+            <span className="text-[10px] uppercase font-extrabold text-rose-700 block">Absent Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-black text-rose-950">🔴 {absentTodayCount}</span>
+              <span className="text-[11px] font-bold text-rose-600">Students</span>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 p-3.5 rounded-2xl border border-indigo-200 text-left space-y-1">
+            <span className="text-[10px] uppercase font-extrabold text-indigo-700 block">Today's Sessions</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-black text-indigo-950">⚡ {todayRecords.length}</span>
+              <span className="text-[11px] font-bold text-indigo-600">Punches</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 Top Admin Tabs: Calendar vs Students vs Locations vs Guest Visitors */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
           <button
             onClick={() => setAdminTab('calendar')}
-            className={`flex-1 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               adminTab === 'calendar'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -363,8 +452,20 @@ export default function AdminDashboard({ currentUser }) {
           </button>
 
           <button
+            onClick={() => setAdminTab('students')}
+            className={`py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              adminTab === 'students'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Registered Students ({students.length})</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('location')}
-            className={`flex-1 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               adminTab === 'location'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -376,7 +477,7 @@ export default function AdminDashboard({ currentUser }) {
 
           <button
             onClick={() => setAdminTab('guests')}
-            className={`flex-1 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               adminTab === 'guests'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -408,29 +509,60 @@ export default function AdminDashboard({ currentUser }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Name, ID, or Email..."
-                className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                placeholder="Type Name, ID, or Email..."
+                className="w-full pl-8 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 font-medium"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">Student Filter</label>
+            <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase">
+              Student Dropdown Filter {searchQuery ? `(${filteredStudents.length} Found)` : ''}
+            </label>
             <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-emerald-500"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="">All Students ({filteredStudents.length})</option>
               {filteredStudents.map((s) => (
                 <option key={s.studentId} value={s.studentId}>
-                  {s.name} ({s.studentId} - {s.email})
+                  {s.name} ({s.studentId} • {s.email})
                 </option>
               ))}
             </select>
           </div>
 
         </div>
+
+        {/* Active Filter Indicator & Reset Bar */}
+        {(searchQuery || selectedStudentId) && (
+          <div className="flex items-center justify-between bg-indigo-50 p-2.5 rounded-2xl border border-indigo-200 text-xs">
+            <span className="font-bold text-indigo-900">
+              Active Filter: {searchQuery ? `Search "${searchQuery}"` : ''} {selectedStudentId ? `• Selected ID: ${selectedStudentId}` : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedStudentId('');
+              }}
+              className="text-[11px] font-bold text-indigo-700 underline hover:text-indigo-900 cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
 
         {/* Selected Student Info Card */}
         {selectedStudentId && (() => {
@@ -481,64 +613,347 @@ export default function AdminDashboard({ currentUser }) {
 
       </div>
 
-      {/* TAB 1: CALENDAR VIEW */}
+      {/* TAB 1: ATTENDANCE SECTION — 2 SUB-TABS (Calendar View vs Attendance Logs) */}
       {adminTab === 'calendar' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">Month Grid ({selectedMonth})</h3>
-            <span className="text-xs text-slate-400">Click date box to view study details</span>
-          </div>
-
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-            {daysList.slice((calendarPage - 1) * PAGE_SIZE, calendarPage * PAGE_SIZE).map((day) => {
-              const dayRecords = dateMap[day.dateStr] || [];
-              const hasRecords = dayRecords.length > 0;
-
-              return (
-                <button
-                  key={day.dateStr}
-                  onClick={() => setSelectedDate(day.dateStr)}
-                  className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between h-20 ${
-                    hasRecords
-                      ? 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-500 hover:shadow-md'
-                      : 'bg-slate-50/50 border-slate-150 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-xs font-bold text-slate-900">{day.dayNumber}</span>
-                    <span className="text-[9px] text-slate-400 uppercase font-mono">{day.dayName}</span>
-                  </div>
-
-                  {hasRecords ? (
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md w-fit">
-                      {dayRecords.length} Session{dayRecords.length > 1 ? 's' : ''}
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-slate-400">No logs</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Calendar Pagination */}
-          {daysList.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setCalendarPage((p) => Math.max(1, p - 1))}
-                disabled={calendarPage === 1}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40"
-              >← Prev</button>
-              <span className="text-xs text-slate-500 font-semibold">
-                Page {calendarPage} of {Math.ceil(daysList.length / PAGE_SIZE)}
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4 text-left">
+          
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <span>🗓️</span>
+                <span>{new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Attendance</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Monthly overview of student study sessions and attendance logs</p>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                📅 {daysList.length} Days
               </span>
-              <button
-                onClick={() => setCalendarPage((p) => Math.min(Math.ceil(daysList.length / PAGE_SIZE), p + 1))}
-                disabled={calendarPage === Math.ceil(daysList.length / PAGE_SIZE)}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-40"
-              >Next →</button>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                🟢 {daysList.filter(d => (dateMap[d.dateStr] || []).length > 0).length} Active Days
+              </span>
+              <span className="text-xs font-bold text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200">
+                ⚡ {attendance.length} Total Sessions
+              </span>
+            </div>
+          </div>
+
+          {/* Sub-Tab Selector: 🗓️ Calendar View vs 📋 Attendance Logs */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-fit">
+            <button
+              onClick={() => setAdminSubTab('calendar')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                adminSubTab === 'calendar'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>🗓️ Calendar View</span>
+            </button>
+
+            <button
+              onClick={() => setAdminSubTab('logs')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                adminSubTab === 'logs'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>📋 Attendance Logs ({attendance.length})</span>
+            </button>
+          </div>
+
+          {/* SUB-TAB 1: CALENDAR VIEW */}
+          {adminSubTab === 'calendar' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Days of Week Header Bar */}
+              <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-extrabold text-slate-600 bg-slate-50 p-2 rounded-2xl border border-slate-200/80">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                  <div key={d} className="py-0.5">{d}</div>
+                ))}
+              </div>
+
+              {/* Full Month Grid (All Days) */}
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                {/* Blank Offset Cells before Day 1 */}
+                {Array.from({ length: daysList[0]?.dayOfWeek || 0 }).map((_, i) => (
+                  <div key={`blank-${i}`} className="p-2 rounded-2xl bg-slate-50/20 border border-slate-100/40 h-20 sm:h-24 pointer-events-none hidden sm:block opacity-40" />
+                ))}
+
+                {/* All Days of the Month */}
+                {daysList.map((day) => {
+                  const dayRecords = dateMap[day.dateStr] || [];
+                  const hasRecords = dayRecords.length > 0;
+                  const isToday = day.dateStr === new Date().toISOString().substring(0, 10);
+
+                  return (
+                    <button
+                      key={day.dateStr}
+                      onClick={() => setSelectedDate(day.dateStr)}
+                      className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between min-h-[60px] sm:h-24 cursor-pointer ${
+                        isToday
+                          ? 'ring-2 ring-emerald-500 bg-emerald-50/80 border-emerald-400 shadow-md scale-[1.02]'
+                          : hasRecords
+                          ? 'bg-emerald-50/30 border-emerald-200/80 hover:border-emerald-500 hover:bg-emerald-50/60 hover:shadow-md'
+                          : 'bg-white border-slate-200/80 hover:border-slate-400 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={`text-xs font-black ${isToday ? 'text-emerald-900 bg-emerald-200/80 px-1.5 py-0.5 rounded-md' : 'text-slate-800'}`}>
+                          {day.dayNumber}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase font-mono hidden sm:inline">{day.dayName}</span>
+                      </div>
+
+                      {hasRecords ? (
+                        <span className="text-[9px] sm:text-[10px] font-extrabold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-1.5 py-0.5 rounded-lg w-fit block truncate max-w-full shadow-2xs">
+                          🟢 {dayRecords.length} Session{dayRecords.length > 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-medium text-slate-400 hidden sm:inline">No logs</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
+
+          {/* SUB-TAB 2: ATTENDANCE LOGS LIST */}
+          {adminSubTab === 'logs' && (
+            <div className="space-y-3 animate-in fade-in duration-150">
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                All Attendance Logs ({attendance.length})
+              </h4>
+
+              {attendance.length === 0 ? (
+                <p className="py-8 text-center text-slate-400 text-xs italic">No attendance records found for this filter.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {paginatedAttendance.map((rec) => (
+                    <div key={rec.id || rec._id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 shadow-2xs hover:border-slate-300 transition-all text-xs">
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          {rec.profileImage || studentMap[rec.studentId]?.profileImage ? (
+                            <img
+                              src={rec.profileImage || studentMap[rec.studentId]?.profileImage}
+                              alt={rec.studentName}
+                              className="w-9 h-9 rounded-full object-cover border-2 border-emerald-500 shadow-xs shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-extrabold text-xs shadow-xs shrink-0">
+                              {rec.studentName ? rec.studentName.charAt(0).toUpperCase() : 'S'}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-extrabold text-slate-900 leading-tight">{rec.studentName}</h4>
+                            <p className="text-[10px] text-slate-500 font-mono">ID: {rec.studentId} • Date: {rec.date}</p>
+                          </div>
+                        </div>
+
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          rec.mode === 'location' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                        }`}>
+                          {rec.mode === 'location' ? '🟢 Offline GPS' : '🔵 Online Mode'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-600 font-mono bg-white p-2.5 rounded-xl border border-slate-200/80">
+                        <span>Punch In: <strong className="text-emerald-700">{new Date(rec.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                        <span>Punch Out: <strong className="text-slate-800">{rec.punchOutTime ? new Date(rec.punchOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active Session'}</strong></span>
+                      </div>
+
+                      {rec.notes && (
+                        <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">📖 Study Notes:</span>
+                          <p className="text-xs text-slate-800 leading-relaxed italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            &quot;{rec.notes}&quot;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Pagination Controls */}
+                  {totalCalendarPages > 1 && (
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                      <button
+                        disabled={calendarPage === 1}
+                        onClick={() => setCalendarPage((p) => Math.max(p - 1, 1))}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-200 cursor-pointer"
+                      >
+                        ← Previous
+                      </button>
+
+                      <span className="font-bold text-slate-500 font-mono">
+                        Page {calendarPage} of {totalCalendarPages}
+                      </span>
+
+                      <button
+                        disabled={calendarPage === totalCalendarPages}
+                        onClick={() => setCalendarPage((p) => Math.min(p + 1, totalCalendarPages))}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-200 cursor-pointer"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* TAB 2: REGISTERED STUDENTS DIRECTORY */}
+      {adminTab === 'students' && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4 text-left">
+          
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <span>👥</span>
+                <span>Registered Students Directory ({filteredStudents.length})</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Manage enrolled student profiles, photos, phone numbers & access</p>
+            </div>
+
+            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+              Total Enrolled: {students.length}
+            </span>
+          </div>
+
+          {filteredStudents.length === 0 ? (
+            <p className="py-8 text-center text-slate-400 text-xs italic">No student accounts found matching your search filter.</p>
+          ) : (
+            <div className="space-y-3">
+              {/* Responsive Table Container */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-3.5">Student</th>
+                      <th className="py-3 px-3.5">Contact Details</th>
+                      <th className="py-3 px-3.5">Role</th>
+                      <th className="py-3 px-3.5">Sessions</th>
+                      <th className="py-3 px-3.5 text-right">GPS Location</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {paginatedStudents.map((st) => {
+                      const stLogs = attendance.filter((a) => a.studentId === st.studentId || a.studentName === st.name);
+                      const latestLog = stLogs[0];
+                      const locData = latestLog?.locationData;
+
+                      return (
+                        <tr key={st.studentId || st._id} className="hover:bg-slate-50/80 transition-colors">
+                          
+                          {/* Student Photo & Name */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex items-center gap-3">
+                              {st.profileImage ? (
+                                <img
+                                  src={st.profileImage}
+                                  alt={st.name}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shadow-xs shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-indigo-600 text-white flex items-center justify-center font-extrabold text-xs shadow-xs shrink-0">
+                                  {st.name ? st.name.charAt(0).toUpperCase() : 'S'}
+                                </div>
+                              )}
+
+                              <div>
+                                <h4 className="font-extrabold text-slate-900 leading-tight flex items-center gap-1.5">
+                                  <span>{st.name}</span>
+                                  {st.profileImage && (
+                                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
+                                      ✓ Photo
+                                    </span>
+                                  )}
+                                </h4>
+                                <p className="text-[10px] text-slate-500 font-mono">ID: {st.studentId || 'STU-NEW'}</p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Contact Info */}
+                          <td className="py-3 px-3.5 font-mono text-[11px]">
+                            <div className="space-y-0.5">
+                              <p className="text-slate-800 font-bold">📞 {st.phone ? st.phone : 'Not set'}</p>
+                              <p className="text-slate-500">📧 {st.email}</p>
+                            </div>
+                          </td>
+
+                          {/* Role */}
+                          <td className="py-3 px-3.5">
+                            <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-extrabold text-[10px] uppercase">
+                              {st.role || 'Student'}
+                            </span>
+                          </td>
+
+                          {/* Sessions Count */}
+                          <td className="py-3 px-3.5 font-mono font-extrabold text-indigo-600">
+                            ⚡ {stLogs.length} Sessions
+                          </td>
+
+                          {/* GPS Location & Map Link */}
+                          <td className="py-3 px-3.5 text-right font-mono">
+                            {locData && locData.latitude ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="text-[11px] text-slate-700 font-bold">📍 {locData.distanceMeters}m dist</span>
+                                <a
+                                  href={`https://maps.google.com/?q=${locData.latitude},${locData.longitude}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-[10px] inline-flex items-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <Navigation className="w-3 h-3 text-indigo-600" />
+                                  <span>Map Pin</span> ↗
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">No GPS log</span>
+                            )}
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Pagination Controls */}
+              {totalStudentDirectoryPages > 1 && (
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                  <button
+                    disabled={studentDirectoryPage === 1}
+                    onClick={() => setStudentDirectoryPage((p) => Math.max(p - 1, 1))}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-200 cursor-pointer"
+                  >
+                    ← Previous
+                  </button>
+
+                  <span className="font-bold text-slate-500 font-mono">
+                    Page {studentDirectoryPage} of {totalStudentDirectoryPages}
+                  </span>
+
+                  <button
+                    disabled={studentDirectoryPage === totalStudentDirectoryPages}
+                    onClick={() => setStudentDirectoryPage((p) => Math.min(p + 1, totalStudentDirectoryPages))}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-200 cursor-pointer"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 
@@ -973,6 +1388,8 @@ export default function AdminDashboard({ currentUser }) {
         </div>
       )}
 
+
+
       {/* DAY DETAIL MODAL */}
       {selectedDate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -1029,17 +1446,10 @@ export default function AdminDashboard({ currentUser }) {
                       </div>
                     )}
 
-                    {isAdminUnlocked && (
+                    {isAdminUnlocked && rec.adminVoiceReply && (
                       <div className="pt-2 border-t border-slate-200 space-y-2">
                         <span className="text-[10px] font-bold text-slate-600 block">Admin Voice Reply:</span>
-                        {rec.adminVoiceReply ? (
-                          <audio controls src={rec.adminVoiceReply} className="w-full h-7" />
-                        ) : (
-                          <VoiceRecorder
-                            label="Send Voice Reply"
-                            onAudioRecorded={(base64) => sendAdminVoiceReply(rec.id || rec._id, base64)}
-                          />
-                        )}
+                        <audio controls src={rec.adminVoiceReply} className="w-full h-7" />
                       </div>
                     )}
 

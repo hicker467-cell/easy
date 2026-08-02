@@ -7,7 +7,7 @@ import AuthModal from '@/components/AuthModal';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [activePortalTab, setActivePortalTab] = useState('punchin'); // 'punchin' | 'attendance' | 'admin'
+  const [activePortalTab, setActivePortalTab] = useState('punch'); // 'punch' | 'attendance' | 'admin'
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Restore User Session from localStorage or NextAuth Google OAuth
@@ -49,9 +49,19 @@ export default function Home() {
                   .then((r) => r.json())
                   .then((data) => {
                     if (data.success && data.user) {
-                      setCurrentUser(data.user);
-                      localStorage.setItem('geo_current_user', JSON.stringify(data.user));
-                      if (data.user.role === 'admin') setActivePortalTab('admin');
+                      const existingStored = localStorage.getItem('geo_current_user');
+                      let storedObj = {};
+                      try { storedObj = existingStored ? JSON.parse(existingStored) : {}; } catch (e) {}
+
+                      const mergedUser = {
+                        ...storedObj,
+                        ...data.user,
+                        profileImage: data.user.profileImage || storedObj.profileImage || null,
+                        phone: data.user.phone || storedObj.phone || ''
+                      };
+                      setCurrentUser(mergedUser);
+                      localStorage.setItem('geo_current_user', JSON.stringify(mergedUser));
+                      if (mergedUser.role === 'admin') setActivePortalTab('admin');
                       window.history.replaceState({}, document.title, window.location.pathname);
                     }
                   })
@@ -82,9 +92,19 @@ export default function Home() {
             .then((r) => r.json())
             .then((data) => {
               if (data.success && data.user) {
-                setCurrentUser(data.user);
-                localStorage.setItem('geo_current_user', JSON.stringify(data.user));
-                if (data.user.role === 'admin') {
+                const existingStored = localStorage.getItem('geo_current_user');
+                let storedObj = {};
+                try { storedObj = existingStored ? JSON.parse(existingStored) : {}; } catch (e) {}
+
+                const mergedUser = {
+                  ...storedObj,
+                  ...data.user,
+                  profileImage: data.user.profileImage || storedObj.profileImage || null,
+                  phone: data.user.phone || storedObj.phone || ''
+                };
+                setCurrentUser(mergedUser);
+                localStorage.setItem('geo_current_user', JSON.stringify(mergedUser));
+                if (mergedUser.role === 'admin') {
                   setActivePortalTab('admin');
                 }
               }
@@ -217,8 +237,11 @@ export default function Home() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('geo_current_user');
-    setActivePortalTab('punchin');
+    setActivePortalTab('punch');
   };
+
+  const [triggerProfileModal, setTriggerProfileModal] = useState(false);
+  const [triggerSupportModal, setTriggerSupportModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -230,6 +253,8 @@ export default function Home() {
         setActiveTab={setActivePortalTab}
         onOpenAuth={() => setShowAuthModal(true)}
         onLogout={handleLogout}
+        onOpenProfile={() => setTriggerProfileModal(true)}
+        onOpenSupport={() => setTriggerSupportModal(true)}
       />
 
       {/* Main Content Area */}
@@ -250,7 +275,14 @@ export default function Home() {
             ) : (
               <StudentDashboard
                 currentUser={currentUser}
+                setCurrentUser={setCurrentUser}
+                activeTab={activePortalTab}
+                setActiveTab={setActivePortalTab}
                 onOpenAuth={() => setShowAuthModal(true)}
+                triggerProfileModal={triggerProfileModal}
+                setTriggerProfileModal={setTriggerProfileModal}
+                triggerSupportModal={triggerSupportModal}
+                setTriggerSupportModal={setTriggerSupportModal}
               />
             )}
           </>
@@ -268,8 +300,8 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400 font-medium">
-        Student Attendance System • GPS Geofence & Location Protection
+      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 font-medium">
+        <div>SSSAM ACADEMY • Student Attendance System</div>
       </footer>
 
     </div>

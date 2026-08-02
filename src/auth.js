@@ -2,6 +2,13 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  session: {
+    strategy: 'jwt',
+    maxAge: 3153600000, // 100 years (JWT never expires)
+  },
+  jwt: {
+    maxAge: 3153600000, // 100 years
+  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,

@@ -35,11 +35,43 @@ export async function GET(req) {
     const studentId = searchParams.get('studentId');
 
     const conn = await connectDB();
+    const store = getStore();
 
     if (conn) {
-      const studentQuery = { role: 'student' };
-      if (studentId) studentQuery.studentId = studentId;
-      const students = await User.find(studentQuery).select('-password');
+      const studentQuery = { $or: [{ role: 'student' }, { role: { $exists: false } }] };
+      const rawStudents = await User.find(studentQuery).select('-password').lean();
+
+      const studentMap = new Map();
+
+      // First populate with store users
+      store.users.filter(u => u.role === 'student' || !u.role).forEach(u => {
+        const key = u.studentId || u.email.toLowerCase();
+        studentMap.set(key, {
+          studentId: u.studentId,
+          name: u.name,
+          email: u.email,
+          role: u.role || 'student',
+          profileImage: u.profileImage || null,
+          phone: u.phone || ''
+        });
+      });
+
+      // Override with DB users if present
+      rawStudents.forEach(s => {
+        const key = s.studentId || s.email.toLowerCase();
+        const existing = studentMap.get(key) || {};
+        studentMap.set(key, {
+          studentId: s.studentId || existing.studentId,
+          name: s.name || existing.name,
+          email: s.email || existing.email,
+          role: s.role || existing.role || 'student',
+          profileImage: s.profileImage || existing.profileImage || null,
+          phone: s.phone || existing.phone || ''
+        });
+      });
+
+      let students = Array.from(studentMap.values());
+      if (studentId) students = students.filter(s => s.studentId === studentId);
 
       const attQuery = { month };
       if (studentId) attQuery.studentId = studentId;
@@ -54,12 +86,11 @@ export async function GET(req) {
         success: true,
         students,
         attendance,
-        guestLogs: getStore().guestAccessLogs || [],
+        guestLogs: store.guestAccessLogs || [],
         settings
       });
     } else {
-      const store = getStore();
-      let students = store.users.filter((u) => u.role === 'student');
+      let students = store.users.filter((u) => u.role === 'student' || !u.role);
       if (studentId) students = students.filter((u) => u.studentId === studentId);
 
       let attendance = store.attendance.filter((r) => r.month === month);
@@ -199,6 +230,24 @@ export async function POST(req) {
       if (!guest) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
       guest.lastRefreshed = new Date().toISOString();
       return NextResponse.json({ success: true, guest });
+    }
+
+    // Delete a single student user (Temporary / Permanent Remove)
+    if (action === 'delete-student') {
+      const { targetStudentId } = body;
+      if (!targetStudentId) {
+        return NextResponse.json({ error: 'Student ID is required' }, { status: 400 });
+      }
+
+      if (conn) {
+        await User.deleteOne({ studentId: targetStudentId });
+        await Attendance.deleteMany({ studentId: targetStudentId });
+      } else {
+        const store = getStore();
+        store.users = store.users.filter((u) => u.studentId !== targetStudentId);
+        store.attendance = store.attendance.filter((a) => a.studentId !== targetStudentId);
+      }
+      return NextResponse.json({ success: true, message: 'Student removed successfully' });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

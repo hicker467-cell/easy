@@ -241,9 +241,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         
         {/* Header */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/30">
-            <User className="w-6 h-6" />
-          </div>
+          <img src="/logo.png" alt="SSSAM ACADEMY Logo" className="w-16 h-16 object-contain mx-auto mb-2 drop-shadow-md" />
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 block">SSSAM ACADEMY</span>
           <h2 className="text-xl font-bold text-slate-900">
             {showForgotPassword
               ? 'Reset Password'

@@ -50,7 +50,7 @@ export async function POST(req) {
 
         return NextResponse.json({
           success: true,
-          user: { studentId: newUser.studentId, name: newUser.name, email: newUser.email, role: newUser.role }
+          user: { studentId: newUser.studentId, name: newUser.name, email: newUser.email, role: newUser.role, profileImage: newUser.profileImage || null, phone: newUser.phone || '' }
         });
       }
     }
@@ -83,7 +83,7 @@ export async function POST(req) {
 
         return NextResponse.json({
           success: true,
-          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role }
+          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage || null, phone: user.phone || '' }
         });
       } else {
         const store = getStore();
@@ -106,7 +106,7 @@ export async function POST(req) {
 
         return NextResponse.json({
           success: true,
-          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role }
+          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role, profileImage: user?.profileImage || null, phone: user?.phone || '' }
         });
       }
     }
@@ -188,7 +188,7 @@ export async function POST(req) {
         }
         return NextResponse.json({
           success: true,
-          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role }
+          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage || null, phone: user.phone || '' }
         });
       } else {
         const store = getStore();
@@ -206,7 +206,76 @@ export async function POST(req) {
         }
         return NextResponse.json({
           success: true,
-          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role }
+          user: { studentId: user.studentId, name: user.name, email: user.email, role: user.role, profileImage: user?.profileImage || null, phone: user?.phone || '' }
+        });
+      }
+    }
+
+    // 6. UPDATE PROFILE (Image & Mobile Number)
+    if (action === 'update-profile' || action === 'update-profile-image') {
+      const { studentId, email: reqEmail, profileImage, phone, name } = body;
+      if (!studentId && !reqEmail) {
+        return NextResponse.json({ error: 'Student ID or Email is required' }, { status: 400 });
+      }
+
+      const updateData = {};
+      if (profileImage !== undefined) updateData.profileImage = profileImage;
+      if (phone !== undefined) updateData.phone = phone;
+      if (name !== undefined) updateData.name = name;
+
+      // Always sync in-memory store user object as well
+      const store = getStore();
+      let storeUser = store.users.find(
+        (u) => (studentId && u.studentId === studentId) || (reqEmail && u.email.toLowerCase() === reqEmail.toLowerCase())
+      );
+
+      if (!storeUser && (studentId || reqEmail)) {
+        storeUser = {
+          studentId: studentId || `STU-2026-${String(store.users.length + 1).padStart(3, '0')}`,
+          name: name || 'Student',
+          email: reqEmail ? reqEmail.toLowerCase() : '',
+          password: 'default_pass',
+          role: 'student',
+          profileImage: profileImage || null,
+          phone: phone || ''
+        };
+        store.users.push(storeUser);
+      } else if (storeUser) {
+        if (profileImage !== undefined) storeUser.profileImage = profileImage;
+        if (phone !== undefined) storeUser.phone = phone;
+        if (name !== undefined) storeUser.name = name;
+      }
+
+      if (conn) {
+        const query = {
+          $or: [
+            ...(studentId ? [{ studentId }] : []),
+            ...(reqEmail ? [{ email: reqEmail.toLowerCase() }] : [])
+          ]
+        };
+        const user = await User.findOneAndUpdate(query, updateData, { new: true, upsert: true });
+        return NextResponse.json({
+          success: true,
+          user: {
+            studentId: user.studentId || storeUser?.studentId,
+            name: user.name || storeUser?.name,
+            email: user.email || storeUser?.email,
+            role: user.role || 'student',
+            profileImage: user.profileImage || storeUser?.profileImage || null,
+            phone: user.phone || storeUser?.phone || ''
+          }
+        });
+      } else {
+        return NextResponse.json({
+          success: true,
+          user: {
+            studentId: storeUser.studentId,
+            name: storeUser.name,
+            email: storeUser.email,
+            role: storeUser.role,
+            profileImage: storeUser?.profileImage || null,
+            phone: storeUser?.phone || ''
+          }
         });
       }
     }
