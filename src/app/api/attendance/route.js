@@ -4,11 +4,11 @@ import Attendance from '@/lib/models/Attendance';
 import Settings from '@/lib/models/Settings';
 
 function getCampusSettings(store) {
-  return store ? store.settings : { campusLat: 28.6139, campusLng: 77.2090, campusRadiusMeters: 200 };
+  return store ? store.settings : null;
 }
 
 function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;

@@ -57,8 +57,8 @@ export default function AdminDashboard({ currentUser }) {
 
   // Office Location Modal State
   const [showOfficeModal, setShowOfficeModal] = useState(false);
-  const [officeLat, setOfficeLat] = useState(28.6139);
-  const [officeLng, setOfficeLng] = useState(77.2090);
+  const [officeLat, setOfficeLat] = useState(null);
+  const [officeLng, setOfficeLng] = useState(null);
   const [officeRadius, setOfficeRadius] = useState(200);
   const [officeSaved, setOfficeSaved] = useState(false);
   const [fetchingGps, setFetchingGps] = useState(false);
@@ -684,10 +684,11 @@ export default function AdminDashboard({ currentUser }) {
             <>
               <div className="space-y-3">
               {guestLogs.slice((guestPage - 1) * PAGE_SIZE, guestPage * PAGE_SIZE).map((log) => {
-                const lat = log.locationData?.latitude || 28.6140;
-                const lng = log.locationData?.longitude || 77.2091;
+                const hasCoords = Boolean(log.locationData?.latitude && log.locationData?.longitude);
+                const lat = log.locationData?.latitude;
+                const lng = log.locationData?.longitude;
                 const dist = log.locationData?.distanceMeters || 0;
-                const mapLink = `https://maps.google.com/?q=${lat},${lng}`;
+                const mapLink = hasCoords ? `https://maps.google.com/?q=${lat},${lng}` : null;
 
                 return (
                   <div key={log.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
@@ -748,39 +749,51 @@ export default function AdminDashboard({ currentUser }) {
                     </div>
 
                     {/* Guest Location & Office Distance Card */}
-                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                        <span className="text-[11px] font-bold text-slate-500">Guest Office Distance:</span>
-                        <span className="font-extrabold font-mono text-xs text-indigo-600">
-                          📍 {dist} meters away from Office
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Coordinates: <strong>{lat.toFixed(5)}, {lng.toFixed(5)}</strong></span>
-                        <span>Time: <strong>{new Date(log.timestamp).toLocaleTimeString()}</strong></span>
-                      </div>
-
-                      {/* GPS Accuracy badge */}
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          log.locationData?.accuracy
-                            ? log.locationData.accuracy <= 20
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : log.locationData.accuracy <= 100
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-rose-100 text-rose-600'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          📡 GPS Accuracy: {log.locationData?.accuracy ? `±${log.locationData.accuracy}m` : 'Unknown'}
-                        </span>
-                        {log.lastRefreshed && (
-                          <span className="text-[9px] text-slate-400 font-mono">
-                            Refreshed: {new Date(log.lastRefreshed).toLocaleTimeString()}
+                    {hasCoords ? (
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                          <span className="text-[11px] font-bold text-slate-500">Guest Office Distance:</span>
+                          <span className="font-extrabold font-mono text-xs text-indigo-600">
+                            📍 {dist} meters away from Office
                           </span>
-                        )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                          <span>Coordinates: <strong>{lat.toFixed(5)}, {lng.toFixed(5)}</strong></span>
+                          <span>Time: <strong>{new Date(log.timestamp).toLocaleTimeString()}</strong></span>
+                        </div>
+
+                        {/* GPS Accuracy badge */}
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            log.locationData?.accuracy
+                              ? log.locationData.accuracy <= 20
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : log.locationData.accuracy <= 100
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-rose-100 text-rose-600'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            📡 GPS Accuracy: {log.locationData?.accuracy ? `±${log.locationData.accuracy}m` : 'Unknown'}
+                          </span>
+                          {log.lastRefreshed && (
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              Refreshed: {new Date(log.lastRefreshed).toLocaleTimeString()}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/80 text-[11px] text-amber-800 space-y-1 font-mono">
+                        <div className="flex items-center justify-between font-bold text-amber-900">
+                          <span>⚠️ Location Permission Pending / Denied</span>
+                          <span className="text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p className="text-[10px] text-amber-700 font-sans">
+                          Guest has not allowed browser location permission yet. Click <strong>🔄 Refresh</strong> to check if guest updated location.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Rich Device Fingerprint Details Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono">
@@ -797,19 +810,20 @@ export default function AdminDashboard({ currentUser }) {
                         </span>
                         <strong className="text-slate-800">{log.timezone || 'Asia/Kolkata'} ({log.language || 'en-US'})</strong>
                       </div>
-
                     </div>
 
                     {/* View Guest Location on Google Maps */}
-                    <a
-                      href={mapLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>📍 View Guest GPS Pin on Google Maps</span>
-                    </a>
+                    {hasCoords && mapLink && (
+                      <a
+                        href={mapLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>📍 View Guest GPS Pin on Google Maps</span>
+                      </a>
+                    )}
 
                   </div>
                 );

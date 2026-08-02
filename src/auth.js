@@ -8,7 +8,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'geo_track_secret_key_2026_ver',
+  trustHost: true,
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account && profile) {

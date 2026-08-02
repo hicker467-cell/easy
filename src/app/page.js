@@ -10,7 +10,7 @@ export default function Home() {
   const [activePortalTab, setActivePortalTab] = useState('punchin'); // 'punchin' | 'attendance' | 'admin'
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Restore User Session from localStorage
+  // Restore User Session from localStorage or NextAuth Google OAuth
   useEffect(() => {
     try {
       const stored = localStorage.getItem('geo_current_user');
@@ -24,6 +24,35 @@ export default function Home() {
     } catch (e) {
       console.error(e);
     }
+
+    // Check NextAuth session for Google OAuth return
+    fetch('/api/auth/session')
+      .then((res) => res.json())
+      .then((sessionData) => {
+        if (sessionData?.user?.email) {
+          fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'google',
+              email: sessionData.user.email,
+              name: sessionData.user.name || sessionData.user.email.split('@')[0]
+            })
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.success && data.user) {
+                setCurrentUser(data.user);
+                localStorage.setItem('geo_current_user', JSON.stringify(data.user));
+                if (data.user.role === 'admin') {
+                  setActivePortalTab('admin');
+                }
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
 
     // Log Guest Visit with live periodic location pings
     const logGuestVisit = async () => {

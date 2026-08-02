@@ -12,8 +12,8 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
   const [gpsPermissionDenied, setGpsPermissionDenied] = useState(false);
 
   // Office location fetched from admin settings
-  const [officeLat, setOfficeLat] = useState(28.6139);
-  const [officeLng, setOfficeLng] = useState(77.2090);
+  const [officeLat, setOfficeLat] = useState(null);
+  const [officeLng, setOfficeLng] = useState(null);
 
   const [activeSession, setActiveSession] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -57,22 +57,22 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
     fetch('/api/admin?month=' + new Date().toISOString().substring(0, 7))
       .then((r) => r.json())
       .then((data) => {
-        let lat = 28.6139, lng = 77.2090;
-        if (data.settings) {
-          lat = data.settings.campusLat;
-          lng = data.settings.campusLng;
+        if (data.settings?.campusLat && data.settings?.campusLng) {
+          const lat = data.settings.campusLat;
+          const lng = data.settings.campusLng;
           setOfficeLat(lat);
           setOfficeLng(lng);
+          checkLocation(lat, lng);
+        } else {
+          checkLocation(null, null);
         }
-        // Now trigger GPS check with correct office coords
-        checkLocation(lat, lng);
       })
       .catch(() => {
-        checkLocation(officeLat, officeLng);
+        checkLocation(null, null);
       });
   }, [currentUser]);
 
-  // GPS Check Function — accepts office coords directly to avoid stale state
+  // GPS Check Function — high accuracy watchPosition sampling
   const checkLocation = (oLat = officeLat, oLng = officeLng) => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
@@ -81,24 +81,51 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
     setRefreshingGps(true);
     setGpsPermissionDenied(false);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+    let bestPos = null;
+    let watchId = null;
+
+    const finish = (pos) => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (pos) {
+        const coords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: Math.round(pos.coords.accuracy)
+        };
         setCurrentCoords(coords);
-        const d = calcDist(pos.coords.latitude, pos.coords.longitude, oLat, oLng);
+        const d = (oLat && oLng) ? calcDist(pos.coords.latitude, pos.coords.longitude, oLat, oLng) : null;
         setDistFromCampus(d);
-        setRefreshingGps(false);
         setGpsPermissionDenied(false);
-      },
-      () => {
-        setRefreshingGps(false);
+      } else {
         setGpsPermissionDenied(true);
+      }
+      setRefreshingGps(false);
+    };
+
+    const timeout = setTimeout(() => {
+      finish(bestPos);
+    }, 8000);
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!bestPos || pos.coords.accuracy < bestPos.coords.accuracy) {
+          bestPos = pos;
+        }
+        if (pos.coords.accuracy <= 15) {
+          clearTimeout(timeout);
+          finish(pos);
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+      (err) => {
+        clearTimeout(timeout);
+        finish(bestPos);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
     );
   };
 
   function calcDist(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
     const R = 6371e3;
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
@@ -110,21 +137,51 @@ export default function StudentDashboard({ currentUser, onOpenAuth }) {
     return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
-  // Active Session Timer
+  // Active Session Timer & Live Background Location Sync
   useEffect(() => {
     if (activeSession) {
       const startTime = new Date(activeSession.punchInTime).getTime();
-      const update = () => {
+      const updateTimer = () => {
         const diff = Math.floor((new Date().getTime() - startTime) / 1000);
         setElapsedSeconds(diff);
       };
-      update();
-      timerRef.current = setInterval(update, 1000);
-      return () => clearInterval(timerRef.current);
+      updateTimer();
+      timerRef.current = setInterval(updateTimer, 1000);
+
+      // Periodic Live Location Update to Backend every 15 seconds while active
+      const syncInterval = setInterval(() => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+              setCurrentCoords(coords);
+              const d = (officeLat && officeLng) ? calcDist(pos.coords.latitude, pos.coords.longitude, officeLat, officeLng) : null;
+              setDistFromCampus(d);
+
+              fetch('/api/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'update-location',
+                  attendanceId: activeSession.id || activeSession._id,
+                  location: coords
+                })
+              }).catch(() => {});
+            },
+            () => {},
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+          );
+        }
+      }, 15000);
+
+      return () => {
+        clearInterval(timerRef.current);
+        clearInterval(syncInterval);
+      };
     } else {
       setElapsedSeconds(0);
     }
-  }, [activeSession]);
+  }, [activeSession, officeLat, officeLng]);
 
   // Handle Fingerprint Click
   const handleFingerprintClick = async () => {

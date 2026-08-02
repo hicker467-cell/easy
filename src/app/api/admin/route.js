@@ -84,7 +84,7 @@ export async function POST(req) {
     const { action, pin, campusLat, campusLng, campusRadiusMeters, device, userAgent, location, details } = body;
     const conn = await connectDB();
 
-    let settings = { campusLat: 28.6139, campusLng: 77.2090, campusRadiusMeters: 200 };
+    let settings = null;
     if (conn) {
       const s = await Settings.findOne();
       if (s) settings = s;
@@ -129,7 +129,9 @@ export async function POST(req) {
       let lat = location?.latitude || null;
       let lng = location?.longitude || null;
       let accuracy = location?.accuracy || null;
-      let dist = (lat && lng) ? calculateDistanceMeters(lat, lng, settings.campusLat, settings.campusLng) : 0;
+      let dist = (lat && lng && settings?.campusLat && settings?.campusLng)
+        ? calculateDistanceMeters(lat, lng, settings.campusLat, settings.campusLng)
+        : null;
 
       // If guestId sent — update existing log location
       if (guestId) {
@@ -151,12 +153,12 @@ export async function POST(req) {
         ipAddress: ip, // keep for backward compat
         device: device || 'Mobile/Desktop Device',
         userAgent: userAgent || req.headers.get('user-agent') || 'Unknown Browser',
-        locationData: {
-          latitude: lat || 28.6140,
-          longitude: lng || 77.2091,
+        locationData: (lat && lng) ? {
+          latitude: lat,
+          longitude: lng,
           distanceMeters: dist,
           accuracy
-        },
+        } : null,
         platform: details?.platform || 'Unknown OS',
         timezone: details?.timezone || 'Asia/Kolkata',
         language: details?.language || 'en-US',
