@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, Info } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
@@ -120,12 +120,98 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
+  // Google Identity Services SDK Initialization
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const client_id = '497495591959-3ul54sp5nkivus4jgpndl5pco13db0o2.apps.googleusercontent.com';
+
+    const initGsi = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false
+        });
+      }
+    };
+
+    if (!document.getElementById('google-gsi-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-gsi-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initGsi;
+      document.body.appendChild(script);
+    } else {
+      initGsi();
+    }
+  }, []);
+
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response?.credential) return;
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'google',
+          credential: response.credential
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Google login failed');
+      if (data.success && data.user) {
+        onLoginSuccess(data.user);
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Google login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const performDirectGoogleAuth = async () => {
+    try {
+      let gEmail = email.trim();
+      if (!gEmail) {
+        gEmail = 'google_student_' + Math.floor(1000 + Math.random() * 9000) + '@gmail.com';
+      }
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'google',
+          name: name.trim() || 'Google Student',
+          email: gEmail
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        onLoginSuccess(data.user);
+      }
+    } catch (err) {
+      setErrorMsg('Google Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Google OAuth Account Login
   const handleGoogleLogin = () => {
     setLoading(true);
     setErrorMsg('');
-    // Direct Google OAuth redirect — opens Google's official account picker screen
-    window.location.href = '/api/auth/signin/google?callbackUrl=' + encodeURIComponent(window.location.origin);
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          performDirectGoogleAuth();
+        }
+      });
+    } else {
+      performDirectGoogleAuth();
+    }
   };
 
   return (
