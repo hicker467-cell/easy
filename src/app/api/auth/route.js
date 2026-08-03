@@ -11,19 +11,43 @@ async function sendBrevoOtpEmail(toEmail, otpCode, type = 'register') {
   const senderEmail = process.env.SMTP_FROM || 'support.sssam@gmail.com';
 
   const subject = type === 'register' 
-    ? 'GeoTrack - Email Registration Verification OTP' 
-    : 'GeoTrack - Reset Password Verification OTP';
+    ? 'SSSAM ACADEMY - Student Registration Verification Code' 
+    : 'SSSAM ACADEMY - Reset Password Verification Code';
 
   const htmlContent = `
-    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff; padding: 32px; border-radius: 20px; border: 1px solid #e5e5ea; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-      <h2 style="color: #1d1d1f; font-size: 22px; font-weight: 700; margin-bottom: 8px; text-align: center;">GeoTrack Verification</h2>
-      <p style="color: #86868b; font-size: 14px; margin-bottom: 24px; text-align: center;">Your 6-digit verification code for ${type === 'register' ? 'student registration' : 'password reset'} is:</p>
-      
-      <div style="background: #f4f4f7; border-radius: 14px; padding: 18px; text-align: center; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #00c7be; margin-bottom: 24px;">
-        ${otpCode}
+    <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #f8f9fa; padding: 24px; border-radius: 24px;">
+      <div style="background: #ffffff; padding: 36px 30px; border-radius: 20px; border: 1px solid #e5e7eb; box-shadow: 0 10px 25px rgba(0,0,0,0.04); text-align: center;">
+        
+        <div style="width: 60px; height: 60px; margin: 0 auto 14px; background: #e6f7f5; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 6px;">
+          <img src="https://attendance-sssam.vercel.app/logo.png" alt="SSSAM Logo" style="width: 48px; height: 48px; object-fit: contain;" />
+        </div>
+
+        <span style="display: block; font-size: 11px; font-weight: 800; color: #00c7be; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">SSSAM ACADEMY</span>
+        
+        <h2 style="color: #111827; font-size: 22px; font-weight: 800; margin: 0 0 10px;">
+          ${type === 'register' ? 'Verify Student Registration' : 'Reset Password Verification'}
+        </h2>
+        
+        <p style="color: #6b7280; font-size: 13px; margin: 0 0 24px; line-height: 1.5;">
+          Use the following 6-digit verification code to complete your ${type === 'register' ? 'SSSAM Student Portal registration' : 'password reset request'}.
+        </p>
+
+        <!-- OTP BOX -->
+        <div style="background: #f0fdfa; border: 1.5px dashed #00c7be; border-radius: 16px; padding: 18px 16px; text-align: center; margin-bottom: 24px;">
+          <span style="display: block; font-size: 11px; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Your 6-Digit OTP Code</span>
+          <div style="font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #0d9488;">
+            ${otpCode}
+          </div>
+        </div>
+
+        <p style="color: #9ca3af; font-size: 12px; margin: 0; line-height: 1.5;">
+          ⏱️ Valid for <strong>10 minutes</strong>. Do not share this code with anyone.
+        </p>
       </div>
 
-      <p style="color: #86868b; font-size: 12px; margin-top: 16px; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
+      <div style="text-align: center; margin-top: 16px; color: #9ca3af; font-size: 11px;">
+        &copy; 2026 SSSAM ACADEMY. All rights reserved.
+      </div>
     </div>
   `;
 
@@ -36,7 +60,7 @@ async function sendBrevoOtpEmail(toEmail, otpCode, type = 'register') {
         'content-type': 'application/json'
       },
       body: JSON.stringify({
-        sender: { name: 'GeoTrack Support', email: senderEmail },
+        sender: { name: 'SSSAM ACADEMY Support', email: senderEmail },
         to: [{ email: toEmail }],
         subject,
         htmlContent
