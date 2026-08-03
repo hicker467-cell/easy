@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, KeyRound, Send } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, KeyRound, Send, Check } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -10,12 +10,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // OTP Verification States
+  // 3-Step Verification States
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -23,23 +25,33 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   if (!isOpen) return null;
 
-  // Step 1: Send Registration OTP se Brevo API
-  const handleSendRegistrationOtp = async (e) => {
+  const resetFormState = () => {
+    setOtp('');
+    setOtpSent(false);
+    setOtpVerified(false);
+    setPassword('');
+    setConfirmPassword('');
+    setErrorMsg('');
+    setSuccessMsg('');
+  };
+
+  // Step 1: Send OTP via Brevo API
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!name.trim()) { setErrorMsg('Full Name is required.'); return; }
+    if (isRegister && !name.trim()) { setErrorMsg('Full Name is required.'); return; }
     if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
-    if (!password.trim() || password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
 
     try {
+      const action = isRegister ? 'send-otp' : 'forgot-password';
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send-otp', email })
+        body: JSON.stringify({ action, email })
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send OTP to email');
@@ -53,36 +65,77 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Step 2: Complete Registration with Email OTP Verification
-  const handleRegisterWithOtp = async (e) => {
+  // Step 2: Verify 6-Digit OTP Code
+  const handleVerifyOtp = (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
     if (!otp.trim() || otp.trim().length < 6) {
-      setErrorMsg('Please enter 6-digit OTP verification code.');
+      setErrorMsg('Please enter valid 6-digit OTP code.');
+      return;
+    }
+
+    setOtpVerified(true);
+    setSuccessMsg('OTP Verified! Please enter and confirm your password below.');
+  };
+
+  // Step 3: Complete Registration or Reset Password with Password & Re-enter Password
+  const handleSubmitFinal = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!password.trim() || password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match. Please re-enter carefully.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'register',
-          name,
-          email,
-          password,
-          otp: otp.trim()
-        })
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
+      if (isRegister) {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'register',
+            name,
+            email,
+            password,
+            otp: otp.trim()
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
 
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
+        if (data.success && data.user) {
+          onLoginSuccess(data.user);
+        }
+      } else if (showForgotPassword) {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reset-password',
+            email,
+            otp: otp.trim(),
+            newPassword: password
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Password reset failed');
+
+        setSuccessMsg('Password reset successful! Please sign in with your new password.');
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          resetFormState();
+        }, 1500);
       }
     } catch (err) {
       setErrorMsg(err.message);
@@ -91,7 +144,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Login (Email & Password)
+  // Standard Login (Email & Password)
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -114,72 +167,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       if (data.success && data.user) {
         onLoginSuccess(data.user);
       }
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Forgot Password: Step 1 Send Reset OTP
-  const handleSendForgotOtp = async (e) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'forgot-password', email })
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Failed to send reset OTP');
-
-      setOtpSent(true);
-      setSuccessMsg(`Password reset OTP sent to ${email} via Brevo Email!`);
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Forgot Password: Step 2 Reset Password with OTP
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    if (!otp.trim() || otp.trim().length < 6) { setErrorMsg('Please enter 6-digit OTP code.'); return; }
-    if (!newPassword.trim() || newPassword.length < 6) { setErrorMsg('New password must be at least 6 characters.'); return; }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'reset-password',
-          email,
-          otp: otp.trim(),
-          newPassword
-        })
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Reset failed');
-
-      setSuccessMsg('Password reset successful! Please sign in with your new password.');
-      setTimeout(() => {
-        setShowForgotPassword(false);
-        setOtpSent(false);
-        setSuccessMsg('');
-      }, 1500);
     } catch (err) {
       setErrorMsg(err.message);
     } finally {
@@ -304,7 +291,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         {/* Header */}
         <div className="text-center space-y-1">
           <img src="/logo.png" alt="SSSAM ACADEMY Logo" className="w-16 h-16 object-contain mx-auto mb-2 drop-shadow-md" />
-          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 block">GeoTrack Portal</span>
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 block">SSSAM ACADEMY</span>
           <h2 className="text-xl font-bold text-slate-900">
             {showForgotPassword
               ? 'Reset Password'
@@ -314,9 +301,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </h2>
           <p className="text-xs text-slate-500">
             {showForgotPassword
-              ? 'Verify email OTP to reset password'
+              ? '3-Step Email OTP & Password Reset'
               : isRegister
-              ? 'Verify email OTP to register account'
+              ? '3-Step Email OTP Verification'
               : 'Sign in with your email and password'}
           </p>
         </div>
@@ -336,108 +323,29 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
         )}
 
-        {/* FORGOT PASSWORD FORM */}
-        {showForgotPassword ? (
+        {/* 3-STEP REGISTER & FORGOT PASSWORD FLOW */}
+        {isRegister || showForgotPassword ? (
           <div className="space-y-4">
-            {!otpSent ? (
-              <form onSubmit={handleSendForgotOtp} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Registered Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="student@school.edu"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
+            
+            {/* STEP 1: Enter Email (and Name for Register) -> Get OTP */}
+            {!otpSent && (
+              <form onSubmit={handleSendOtp} className="space-y-3">
+                {isRegister && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Rahul Sharma"
+                        className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 flex items-center justify-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{loading ? 'Sending OTP...' : 'Send Reset OTP via Email'}</span>
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleResetPassword} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Email OTP Code</label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="123456"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input
-                      type="password"
-                      required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
-                >
-                  {loading ? 'Updating Password...' : 'Verify OTP & Reset Password'}
-                </button>
-              </form>
-            )}
-
-            <button
-              onClick={() => {
-                setShowForgotPassword(false);
-                setOtpSent(false);
-                setErrorMsg('');
-                setSuccessMsg('');
-              }}
-              className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-900"
-            >
-              Back to Sign In
-            </button>
-          </div>
-        ) : isRegister ? (
-          /* REGISTRATION FORM WITH BREVO EMAIL OTP */
-          <div className="space-y-4">
-            {!otpSent ? (
-              <form onSubmit={handleSendRegistrationOtp} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Rahul Sharma"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
@@ -454,8 +362,53 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   </div>
                 </div>
 
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{loading ? 'Sending OTP...' : 'Get Email Verification OTP'}</span>
+                </button>
+              </form>
+            )}
+
+            {/* STEP 2: Enter 6-Digit OTP Code */}
+            {otpSent && !otpVerified && (
+              <form onSubmit={handleVerifyOtp} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Email OTP Code</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Verify OTP Code</span>
+                </button>
+              </form>
+            )}
+
+            {/* STEP 3: Enter Password & Re-enter Password (AFTER OTP VERIFIED) */}
+            {otpSent && otpVerified && (
+              <form onSubmit={handleSubmitFinal} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {showForgotPassword ? 'New Password' : 'Create Password'}
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                     <input
@@ -476,29 +429,25 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{loading ? 'Sending OTP...' : 'Get Email Verification OTP'}</span>
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleRegisterWithOtp} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Email OTP Code</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Re-enter Password</label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                     <input
-                      type="text"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       required
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="123456"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -507,7 +456,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   disabled={loading}
                   className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
                 >
-                  <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Complete Registration'}</span>
+                  <span>
+                    {loading
+                      ? 'Processing...'
+                      : showForgotPassword
+                      ? 'Update Password'
+                      : 'Complete Registration'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
@@ -518,18 +473,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                 type="button"
                 onClick={() => {
                   setIsRegister(false);
-                  setOtpSent(false);
-                  setErrorMsg('');
-                  setSuccessMsg('');
+                  setShowForgotPassword(false);
+                  resetFormState();
                 }}
                 className="text-xs text-slate-500 font-semibold hover:text-slate-900"
               >
-                Already have an account? Sign In
+                Back to Sign In
               </button>
             </div>
           </div>
         ) : (
-          /* SIGN IN FORM (EMAIL & PASSWORD) */
+          /* STANDARD SIGN IN FORM (EMAIL & PASSWORD) */
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
@@ -553,9 +507,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   type="button"
                   onClick={() => {
                     setShowForgotPassword(true);
-                    setOtpSent(false);
-                    setErrorMsg('');
-                    setSuccessMsg('');
+                    setIsRegister(false);
+                    resetFormState();
                   }}
                   className="text-[11px] font-bold text-emerald-600 hover:underline"
                 >
@@ -633,9 +586,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                 type="button"
                 onClick={() => {
                   setIsRegister(true);
-                  setOtpSent(false);
-                  setErrorMsg('');
-                  setSuccessMsg('');
+                  setShowForgotPassword(false);
+                  resetFormState();
                 }}
                 className="text-xs text-slate-500 font-semibold hover:text-slate-900"
               >
