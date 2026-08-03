@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, KeyRound, Send, Check } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, KeyRound, Send, Check, RotateCw } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -19,9 +19,23 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
 
+  // Resend OTP Countdown Timer
+  const [resendCountdown, setResendCountdown] = useState(30);
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Resend OTP Timer Effect
+  useEffect(() => {
+    let timer;
+    if (otpSent && !otpVerified && resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpSent, otpVerified, resendCountdown]);
 
   if (!isOpen) return null;
 
@@ -29,6 +43,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setOtp('');
     setOtpSent(false);
     setOtpVerified(false);
+    setResendCountdown(30);
     setPassword('');
     setConfirmPassword('');
     setErrorMsg('');
@@ -37,7 +52,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   // Step 1: Send OTP via Brevo API
   const handleSendOtp = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -57,6 +72,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send OTP to email');
 
       setOtpSent(true);
+      setResendCountdown(30);
       setSuccessMsg(`6-digit OTP sent to ${email} via Brevo Email!`);
     } catch (err) {
       setErrorMsg(err.message);
@@ -373,7 +389,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               </form>
             )}
 
-            {/* STEP 2: Enter 6-Digit OTP Code */}
+            {/* STEP 2: Enter 6-Digit OTP Code & Resend OTP Timer */}
             {otpSent && !otpVerified && (
               <form onSubmit={handleVerifyOtp} className="space-y-3">
                 <div>
@@ -389,6 +405,23 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                       className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
+                </div>
+
+                {/* Resend OTP Button with 30s Countdown Timer */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={resendCountdown > 0 || loading}
+                    onClick={handleSendOtp}
+                    className="text-xs font-semibold text-emerald-600 hover:underline disabled:text-slate-400 disabled:no-underline flex items-center gap-1"
+                  >
+                    <RotateCw className="w-3 h-3" />
+                    <span>
+                      {resendCountdown > 0
+                        ? `Resend OTP in ${resendCountdown}s`
+                        : 'Resend OTP via Email'}
+                    </span>
+                  </button>
                 </div>
 
                 <button
