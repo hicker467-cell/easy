@@ -1,21 +1,21 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, Info } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight, CheckCircle2, User, KeyRound, Send } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  // Form Inputs - Blank on load per user requirement
+  // Form Inputs
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Reset Password State
-  const [resetOtp, setResetOtp] = useState('');
+  // OTP Verification States
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [newPassword, setNewPassword] = useState('');
-  const [otpSentMessage, setOtpSentMessage] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -23,36 +23,63 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   if (!isOpen) return null;
 
-  // Handle Login & Registration
-  const handleSubmit = async (e) => {
+  // Step 1: Send Registration OTP se Brevo API
+  const handleSendRegistrationOtp = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    // Validate empty fields
+    if (!name.trim()) { setErrorMsg('Full Name is required.'); return; }
     if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
-    if (!password.trim()) { setErrorMsg('Password is required.'); return; }
-    if (isRegister && !name.trim()) { setErrorMsg('Name is required.'); return; }
-    if (password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
+    if (!password.trim() || password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
 
     try {
-      const payload = isRegister
-        ? { action: 'register', name, email, password }
-        : { action: 'login', email, password };
-
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ action: 'send-otp', email })
       });
-
       const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed to send OTP to email');
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Authentication failed');
-      }
+      setOtpSent(true);
+      setSuccessMsg(`6-digit OTP sent to ${email} via Brevo Email!`);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: Complete Registration with Email OTP Verification
+  const handleRegisterWithOtp = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!otp.trim() || otp.trim().length < 6) {
+      setErrorMsg('Please enter 6-digit OTP verification code.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register',
+          name,
+          email,
+          password,
+          otp: otp.trim()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Registration failed');
 
       if (data.success && data.user) {
         onLoginSuccess(data.user);
@@ -64,10 +91,44 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Handle Forgot Password (Send OTP)
-  const handleSendOtp = async (e) => {
+  // Login (Email & Password)
+  const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
+    if (!password.trim()) { setErrorMsg('Password is required.'); return; }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', email, password })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Invalid credentials');
+
+      if (data.success && data.user) {
+        onLoginSuccess(data.user);
+      }
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Forgot Password: Step 1 Send Reset OTP
+  const handleSendForgotOtp = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!email.trim()) { setErrorMsg('Email address is required.'); return; }
+
     setLoading(true);
 
     try {
@@ -77,9 +138,10 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         body: JSON.stringify({ action: 'forgot-password', email })
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Failed to send OTP');
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed to send reset OTP');
 
-      setOtpSentMessage('Real Email OTP Service Coming Soon!');
+      setOtpSent(true);
+      setSuccessMsg(`Password reset OTP sent to ${email} via Brevo Email!`);
     } catch (err) {
       setErrorMsg(err.message);
     } finally {
@@ -87,10 +149,15 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Handle Reset Password (Verify OTP)
+  // Forgot Password: Step 2 Reset Password with OTP
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!otp.trim() || otp.trim().length < 6) { setErrorMsg('Please enter 6-digit OTP code.'); return; }
+    if (!newPassword.trim() || newPassword.length < 6) { setErrorMsg('New password must be at least 6 characters.'); return; }
+
     setLoading(true);
 
     try {
@@ -100,17 +167,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         body: JSON.stringify({
           action: 'reset-password',
           email,
-          otp: resetOtp,
+          otp: otp.trim(),
           newPassword
         })
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Reset failed');
 
-      setSuccessMsg('Password reset successful! Please log in with your new password.');
+      setSuccessMsg('Password reset successful! Please sign in with your new password.');
       setTimeout(() => {
         setShowForgotPassword(false);
-        setOtpSentMessage('');
+        setOtpSent(false);
         setSuccessMsg('');
       }, 1500);
     } catch (err) {
@@ -122,7 +189,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '497495591959-3ul54sp5nkivus4jgpdnl5pco13db0o2.apps.googleusercontent.com';
 
-  // Google Identity Services SDK Initialization
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -174,14 +240,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // Real Google OAuth 2.0 Account Picker & Consent Popup
   const handleGoogleLogin = () => {
     setLoading(true);
     setErrorMsg('');
 
     const clientId = GOOGLE_CLIENT_ID;
 
-    // 1. Try Google Identity Services Token Client Popup (Real Google Select Account + Consent Allow)
     if (window.google?.accounts?.oauth2) {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
@@ -190,7 +254,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           callback: async (tokenResponse) => {
             if (tokenResponse?.access_token) {
               try {
-                // Fetch real user email & name from Google UserInfo API
                 const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                   headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
                 });
@@ -229,7 +292,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       }
     }
 
-    // 2. Fallback: Google OAuth redirect URL directly to accounts.google.com with consent prompt
     const redirectUri = window.location.origin;
     const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email%20profile&prompt=consent%20select_account`;
     window.location.href = googleOAuthUrl;
@@ -242,7 +304,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         {/* Header */}
         <div className="text-center space-y-1">
           <img src="/logo.png" alt="SSSAM ACADEMY Logo" className="w-16 h-16 object-contain mx-auto mb-2 drop-shadow-md" />
-          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 block">SSSAM ACADEMY</span>
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 block">GeoTrack Portal</span>
           <h2 className="text-xl font-bold text-slate-900">
             {showForgotPassword
               ? 'Reset Password'
@@ -252,14 +314,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </h2>
           <p className="text-xs text-slate-500">
             {showForgotPassword
-              ? 'Enter registered email for password reset'
+              ? 'Verify email OTP to reset password'
               : isRegister
-              ? 'Register with your student details'
-              : 'Sign in with your registered email and password'}
+              ? 'Verify email OTP to register account'
+              : 'Sign in with your email and password'}
           </p>
         </div>
 
-        {/* Error / Success Alerts */}
+        {/* Alerts */}
         {errorMsg && (
           <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 flex-shrink-0" />
@@ -277,15 +339,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         {/* FORGOT PASSWORD FORM */}
         {showForgotPassword ? (
           <div className="space-y-4">
-            
-            {/* Info Banner: Real Email OTP Coming Soon */}
-            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-xs font-semibold flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
-              <span>Real Email OTP Service Coming Soon!</span>
-            </div>
-
-            {!otpSentMessage ? (
-              <form onSubmit={handleSendOtp} className="space-y-3">
+            {!otpSent ? (
+              <form onSubmit={handleSendForgotOtp} className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Registered Email</label>
                   <div className="relative">
@@ -304,39 +359,42 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Sending...' : 'Request Reset OTP'}
+                  <Send className="w-4 h-4" />
+                  <span>{loading ? 'Sending OTP...' : 'Send Reset OTP via Email'}</span>
                 </button>
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-3">
-                <p className="text-xs text-indigo-700 font-bold bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
-                  {otpSentMessage}
-                </p>
-
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Enter OTP Code (123456)</label>
-                  <input
-                    type="text"
-                    required
-                    value={resetOtp}
-                    onChange={(e) => setResetOtp(e.target.value)}
-                    placeholder="123456"
-                    className="w-full text-center tracking-widest font-mono text-sm py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
+                  <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Email OTP Code</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -344,7 +402,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   disabled={loading}
                   className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
                 >
-                  {loading ? 'Resetting...' : 'Update Password'}
+                  {loading ? 'Updating Password...' : 'Verify OTP & Reset Password'}
                 </button>
               </form>
             )}
@@ -352,34 +410,127 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <button
               onClick={() => {
                 setShowForgotPassword(false);
-                setOtpSentMessage('');
+                setOtpSent(false);
+                setErrorMsg('');
+                setSuccessMsg('');
               }}
               className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-900"
             >
               Back to Sign In
             </button>
           </div>
-        ) : (
-          /* MAIN LOGIN / REGISTER FORM */
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {isRegister && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Rahul Sharma"
-                    className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
-                  />
+        ) : isRegister ? (
+          /* REGISTRATION FORM WITH BREVO EMAIL OTP */
+          <div className="space-y-4">
+            {!otpSent ? (
+              <form onSubmit={handleSendRegistrationOtp} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Rahul Sharma"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
-              </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="student@school.edu"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{loading ? 'Sending OTP...' : 'Get Email Verification OTP'}</span>
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegisterWithOtp} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Email OTP Code</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono tracking-widest text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Complete Registration'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
             )}
 
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegister(false);
+                  setOtpSent(false);
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                }}
+                className="text-xs text-slate-500 font-semibold hover:text-slate-900"
+              >
+                Already have an account? Sign In
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* SIGN IN FORM (EMAIL & PASSWORD) */
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
               <div className="relative">
@@ -398,15 +549,18 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-700">Password</label>
-                {!isRegister && (
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline"
-                  >
-                    Forgot Password?
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    setOtpSent(false);
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className="text-[11px] font-bold text-emerald-600 hover:underline"
+                >
+                  Forgot Password?
+                </button>
               </div>
 
               <div className="relative">
@@ -420,7 +574,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
                 />
                 
-                {/* Show/Hide Password Eye Toggle */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -436,7 +589,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
             >
-              <span>{loading ? 'Please wait...' : isRegister ? 'Register Student Account' : 'Sign In'}</span>
+              <span>{loading ? 'Signing in...' : 'Sign In'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -479,12 +632,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => {
-                  setIsRegister(!isRegister);
+                  setIsRegister(true);
+                  setOtpSent(false);
                   setErrorMsg('');
+                  setSuccessMsg('');
                 }}
                 className="text-xs text-slate-500 font-semibold hover:text-slate-900"
               >
-                {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
+                Don't have an account? Register with Email OTP
               </button>
             </div>
 
