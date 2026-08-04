@@ -63,7 +63,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { action, studentId, studentName, mode, location, notes, audioNote, attendanceId, adminVoiceReply } = body;
+    const { action, studentId, studentName, mode, classMode, location, notes, audioNote, attendanceId, adminVoiceReply } = body;
     const conn = await connectDB();
 
     const clientIp = getClientIp(req);
@@ -98,10 +98,10 @@ export async function POST(req) {
         dist = calculateDistanceMeters(
           location.latitude,
           location.longitude,
-          settings.campusLat,
-          settings.campusLng
+          settings?.campusLat,
+          settings?.campusLng
         );
-        withinRange = dist <= settings.campusRadiusMeters;
+        withinRange = dist !== null ? dist <= (settings?.campusRadiusMeters || 350) : true;
         isLeftCampus = mode === 'location' ? !withinRange : false;
       }
 
@@ -114,6 +114,8 @@ export async function POST(req) {
         ipAddress: clientIp
       };
 
+      const finalClassMode = classMode || (mode === 'online' ? 'online' : 'offline');
+
       if (conn) {
         const record = await Attendance.create({
           studentId,
@@ -121,7 +123,8 @@ export async function POST(req) {
           date: dateStr,
           month: monthStr,
           punchInTime: now,
-          mode: mode || 'location',
+          mode: mode || (finalClassMode === 'online' ? 'online' : 'location'),
+          classMode: finalClassMode,
           locationData: locationObj,
           status: 'active'
         });
@@ -136,7 +139,8 @@ export async function POST(req) {
           punchInTime: now.toISOString(),
           punchOutTime: null,
           durationMinutes: 0,
-          mode: mode || 'location',
+          mode: mode || (finalClassMode === 'online' ? 'online' : 'location'),
+          classMode: finalClassMode,
           locationData: locationObj,
           notes: null,
           audioNote: null,

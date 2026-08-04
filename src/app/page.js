@@ -6,8 +6,13 @@ import AdminDashboard from '@/components/AdminDashboard';
 import AuthModal from '@/components/AuthModal';
 
 export default function Home() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [activePortalTab, setActivePortalTab] = useState('punch'); // 'punch' | 'attendance' | 'admin'
+  const [currentUser, setCurrentUser] = useState({
+    name: 'Sudhir Kumar',
+    email: 'sudhir@gmail.com',
+    studentId: 'STU-2026-001',
+    role: 'student'
+  });
+  const [activePortalTab, setActivePortalTab] = useState('punch');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Restore User Session from localStorage or NextAuth Google OAuth
@@ -244,21 +249,10 @@ export default function Home() {
   const [triggerSupportModal, setTriggerSupportModal] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
       
-      {/* Top Navbar */}
-      <Navbar
-        currentUser={currentUser}
-        activeTab={activePortalTab}
-        setActiveTab={setActivePortalTab}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onLogout={handleLogout}
-        onOpenProfile={() => setTriggerProfileModal(true)}
-        onOpenSupport={() => setTriggerSupportModal(true)}
-      />
-
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 w-full mx-auto">
         
         {/* If Not Logged In, Show Full Page Auth Modal / Login Screen */}
         {!currentUser ? (
@@ -276,13 +270,7 @@ export default function Home() {
               <StudentDashboard
                 currentUser={currentUser}
                 setCurrentUser={setCurrentUser}
-                activeTab={activePortalTab}
-                setActiveTab={setActivePortalTab}
-                onOpenAuth={() => setShowAuthModal(true)}
-                triggerProfileModal={triggerProfileModal}
-                setTriggerProfileModal={setTriggerProfileModal}
-                triggerSupportModal={triggerSupportModal}
-                setTriggerSupportModal={setTriggerSupportModal}
+                onLogout={handleLogout}
               />
             )}
           </>
@@ -298,11 +286,6 @@ export default function Home() {
           onLoginSuccess={handleLoginSuccess}
         />
       )}
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 font-medium">
-        <div>SSSAM ACADEMY • Student Attendance System</div>
-      </footer>
 
     </div>
   );

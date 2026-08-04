@@ -10,6 +10,7 @@ const AttendanceSchema = new mongoose.Schema(
     punchOutTime: { type: Date },
     durationMinutes: { type: Number, default: 0 },
     mode: { type: String, enum: ['location', 'online'], default: 'location' },
+    classMode: { type: String, enum: ['offline', 'online'], default: 'offline' },
     locationData: {
       latitude: Number,
       longitude: Number,
