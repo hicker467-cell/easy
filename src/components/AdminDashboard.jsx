@@ -1568,6 +1568,8 @@ export default function AdminDashboard({ currentUser }) {
             </div>
           </div>
         </div>
+      )}
+
       {/* ADD NEW STUDENT MODAL */}
       {showAddStudentModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
