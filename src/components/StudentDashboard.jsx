@@ -704,6 +704,45 @@ export default function StudentDashboard({
               </div>
             </div>
 
+            {/* Quick Links Row: WhatsApp Group & YouTube CodingWithSudhir */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* WhatsApp Placement Group */}
+              <div 
+                onClick={() => window.open('https://chat.whatsapp.com/IoJv1FFdbNNGsSUN52ZZdS', '_blank')}
+                className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-2xs flex items-center justify-between cursor-pointer hover:border-[#34C759] transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#E8F8EE] text-[#34C759] group-hover:scale-105 transition-transform">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs font-extrabold text-[#1D1D1F] block">Official WhatsApp Group</span>
+                    <span className="text-[10px] font-medium text-[#86868B]">Join SSSAM Placement Community</span>
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-[#34C759]" />
+              </div>
+
+              {/* YouTube Channel: CodingWithSudhir */}
+              <div 
+                onClick={() => window.open('https://www.youtube.com/@codingwithsudhir', '_blank')}
+                className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-2xs flex items-center justify-between cursor-pointer hover:border-[#FF0000] transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#FFF0F0] text-[#FF0000] group-hover:scale-105 transition-transform flex items-center justify-center">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs font-extrabold text-[#1D1D1F] block">Coding With Sudhir</span>
+                    <span className="text-[10px] font-medium text-[#86868B]">Official YouTube Channel</span>
+                  </div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-[#FF0000]" />
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -711,45 +750,47 @@ export default function StudentDashboard({
         {activeTab === 'calendar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             
-            {/* Month Selector with Interactive Month Picker */}
-            <div className="bg-white rounded-2xl p-3 shadow-2xs border border-[#E5E5EA] flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+            {/* Month Selector with Perfectly Responsive Mobile Layout */}
+            <div className="bg-white rounded-2xl p-3.5 shadow-2xs border border-[#E5E5EA] space-y-3">
+              <div className="flex items-center justify-between w-full">
                 <button 
+                  type="button"
                   onClick={() => {
                     const [y, m] = selectedMonth.split('-').map(Number);
                     const prevDate = new Date(y, m - 2, 1);
                     setSelectedMonth(`${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`);
                   }}
-                  className="p-1.5 rounded-xl text-[#0071E3] hover:bg-[#F5F5F7] cursor-pointer font-bold flex items-center gap-1 text-xs"
+                  className="px-3.5 py-2 rounded-xl bg-[#F5F5F7] text-[#0071E3] hover:bg-[#E8F2FF] cursor-pointer font-extrabold flex items-center gap-1 text-xs border border-[#E5E5EA] shadow-2xs"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Prev</span>
                 </button>
 
-                <h3 className="font-extrabold text-sm text-[#1D1D1F] tracking-tight">
+                <h3 className="font-black text-sm sm:text-base text-[#1D1D1F] tracking-tight text-center px-2">
                   {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </h3>
 
                 <button 
+                  type="button"
                   onClick={() => {
                     const [y, m] = selectedMonth.split('-').map(Number);
                     const nextDate = new Date(y, m, 1);
                     setSelectedMonth(`${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`);
                   }}
-                  className="p-1.5 rounded-xl text-[#0071E3] hover:bg-[#F5F5F7] cursor-pointer font-bold flex items-center gap-1 text-xs"
+                  className="px-3.5 py-2 rounded-xl bg-[#F5F5F7] text-[#0071E3] hover:bg-[#E8F2FF] cursor-pointer font-extrabold flex items-center gap-1 text-xs border border-[#E5E5EA] shadow-2xs"
                 >
                   <span>Next</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-[#86868B]">Select Month:</span>
+              <div className="flex items-center justify-center gap-2 pt-2 border-t border-[#F5F5F7]">
+                <span className="text-[11px] font-bold text-[#86868B]">Jump to Month:</span>
                 <input
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="px-2.5 py-1 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs font-bold text-[#1D1D1F] cursor-pointer"
+                  className="px-3 py-1 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs font-extrabold text-[#1D1D1F] cursor-pointer focus:outline-none focus:border-[#0071E3]"
                 />
               </div>
             </div>
