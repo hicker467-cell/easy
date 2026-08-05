@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Fingerprint, Calendar, User, MessageSquare, MapPin, ChevronLeft, ChevronRight, 
-  RotateCw, LogOut, CheckCircle2, AlertCircle, Phone, Camera, X, Clock, ExternalLink 
+  RotateCw, LogOut, CheckCircle2, AlertCircle, Phone, Camera, X, Clock, ExternalLink, Globe 
 } from 'lucide-react';
 
 export default function StudentDashboard({
@@ -49,13 +49,21 @@ export default function StudentDashboard({
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   const [selectedDateDetail, setSelectedDateDetail] = useState(null);
 
-  // Profile Upload State
+  // Profile Upload & Edit State
+  const [profileName, setProfileName] = useState(currentUser?.name || '');
   const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempProfileImage, setTempProfileImage] = useState(currentUser?.profileImage || null);
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+
+  // High Authority Support Escalation Modal State (91 Number)
+  const [showHighAuthorityModal, setShowHighAuthorityModal] = useState(false);
+  const [escalationIssue, setEscalationIssue] = useState('');
+  const [escalation92Discussion, setEscalation92Discussion] = useState('');
+  const [escalationError, setEscalationError] = useState('');
 
   // Support Form State
   const [supportName, setSupportName] = useState(currentUser?.name || '');
@@ -286,11 +294,23 @@ export default function StudentDashboard({
     reader.readAsDataURL(file);
   };
 
-  // Profile Save
+  // Profile Save / Edit Toggle Handler
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setProfileError('');
     setProfileSuccess('');
+
+    // If currently read-only, unlock fields for editing
+    if (!isEditingProfile) {
+      setIsEditingProfile(true);
+      return;
+    }
+
+    if (!profileName.trim()) {
+      setProfileError('Please enter your full name.');
+      return;
+    }
+
     const rawDigits = profilePhone.replace(/\D/g, '');
     if (rawDigits.length !== 10) {
       setProfileError('Please enter a valid 10-digit mobile number.');
@@ -305,31 +325,60 @@ export default function StudentDashboard({
           action: 'update-profile',
           studentId: currentUser.studentId || '',
           email: currentUser.email || '',
+          name: profileName.trim(),
           profileImage: tempProfileImage,
           phone: profilePhone.trim()
         })
       });
       const data = await res.json();
       if (data.success) {
-        const updatedUser = { ...currentUser, profileImage: tempProfileImage, phone: profilePhone.trim() };
+        const updatedUser = { ...currentUser, name: profileName.trim(), profileImage: tempProfileImage, phone: profilePhone.trim() };
         localStorage.setItem('geo_current_user', JSON.stringify(updatedUser));
         if (setCurrentUser) setCurrentUser(updatedUser);
+        setIsEditingProfile(false);
         setProfileSuccess('Profile details saved successfully!');
+      } else {
+        setProfileError(data.error || 'Failed to save profile.');
       }
     } catch (err) {
       setProfileError('Failed to save profile.');
     }
   };
 
-  // WhatsApp Support Trigger (No raw phone numbers displayed on button text)
+  // WhatsApp Support Trigger (Primary 92 Line)
   const handleOpenWhatsApp = (targetNumber = '919217031899') => {
     setSupportError('');
     if (!supportMessage.trim()) {
       setSupportError('Please describe your attendance issue below.');
       return;
     }
-    const text = `Student Support Ticket:\n👤 Name: ${supportName}\n📞 Contact: ${supportPhone}\n💬 Details: ${supportMessage}`;
+    const text = `Student Support Ticket:\n👤 Name: ${supportName || currentUser?.name || 'Student'}\n📞 Contact: ${supportPhone || currentUser?.phone || 'N/A'}\n💬 Details: ${supportMessage.trim()}`;
     window.open(`https://wa.me/${targetNumber}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  // High Authority Support Escalation Trigger (91 Priority Line)
+  const handleOpenHighAuthorityModal = () => {
+    setEscalationIssue(supportMessage || '');
+    setEscalation92Discussion('');
+    setEscalationError('');
+    setShowHighAuthorityModal(true);
+  };
+
+  const handleSubmitEscalation = (e) => {
+    if (e) e.preventDefault();
+    setEscalationError('');
+    if (!escalationIssue.trim()) {
+      setEscalationError('Please describe the issue faced.');
+      return;
+    }
+    if (!escalation92Discussion.trim()) {
+      setEscalationError('Please explain what was discussed on the 92 support line.');
+      return;
+    }
+
+    const text = `🚨 High Authority Escalation Ticket:\n👤 Name: ${supportName || currentUser?.name || 'Student'}\n📞 Contact: ${supportPhone || currentUser?.phone || 'N/A'}\n❗ Issue Details: ${escalationIssue.trim()}\n💬 Discussion with 92 Support Line: ${escalation92Discussion.trim()}`;
+    window.open(`https://wa.me/919102130956?text=${encodeURIComponent(text)}`, '_blank');
+    setShowHighAuthorityModal(false);
   };
 
   // Metrics Calculations (August 2026)
@@ -854,18 +903,30 @@ export default function StudentDashboard({
 
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">Full Name</label>
-                  <input type="text" readOnly value={currentUser?.name || 'Sudhir Kumar'} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold" />
+                  <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    readOnly={!isEditingProfile}
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="Enter full name"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                      isEditingProfile
+                        ? 'bg-white border-[#0071E3] text-[#1D1D1F] ring-2 ring-[#0071E3]/20 focus:outline-none'
+                        : 'bg-[#F5F5F7] border-[#E5E5EA] text-[#1D1D1F] cursor-not-allowed opacity-90'
+                    }`}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">Student ID / Roll No</label>
-                  <input type="text" readOnly value={currentUser?.studentId || 'STU-2026-001'} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold font-mono" />
+                  <input type="text" readOnly value={currentUser?.studentId || 'STU-2026-001'} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold font-mono cursor-not-allowed opacity-90" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">Email Address</label>
-                  <input type="email" readOnly value={currentUser?.email || 'sudhir@gmail.com'} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold" />
+                  <input type="email" readOnly value={currentUser?.email || 'sudhir@gmail.com'} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold cursor-not-allowed opacity-90" />
                 </div>
 
                 <div>
@@ -873,18 +934,36 @@ export default function StudentDashboard({
                   <input
                     type="tel"
                     required
+                    readOnly={!isEditingProfile}
                     value={profilePhone}
                     onChange={(e) => setProfilePhone(e.target.value)}
                     placeholder="Enter 10-digit mobile number"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] font-bold"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                      isEditingProfile
+                        ? 'bg-white border-[#0071E3] text-[#1D1D1F] ring-2 ring-[#0071E3]/20 focus:outline-none'
+                        : 'bg-[#F5F5F7] border-[#E5E5EA] text-[#1D1D1F] cursor-not-allowed opacity-90'
+                    }`}
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#0071E3] text-white font-extrabold text-xs shadow-md shadow-[#0071E3]/20 hover:bg-[#0062C4] transition-all cursor-pointer"
+                  className={`w-full py-3 rounded-xl text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    isEditingProfile
+                      ? 'bg-[#34C759] hover:bg-[#2EB14F] shadow-[#34C759]/20'
+                      : 'bg-[#0071E3] hover:bg-[#0062C4] shadow-[#0071E3]/20'
+                  }`}
                 >
-                  Save Profile Details
+                  {isEditingProfile ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Save Profile Details</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✏️ Edit Profile</span>
+                    </>
+                  )}
                 </button>
               </form>
 
@@ -946,7 +1025,7 @@ export default function StudentDashboard({
 
                   <button
                     type="button"
-                    onClick={() => handleOpenWhatsApp('919102130956')}
+                    onClick={handleOpenHighAuthorityModal}
                     className="w-full py-3 rounded-xl bg-[#FFF0F0] border border-[#FF3B30]/30 text-[#FF3B30] font-extrabold text-xs hover:bg-[#FFE0E0] flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <Phone className="w-4 h-4 text-[#FF3B30]" />
@@ -1013,6 +1092,96 @@ export default function StudentDashboard({
           <span className="text-[10px]">Support</span>
         </button>
       </div>
+
+      {/* 🚨 HIGH AUTHORITY PRIORITY ESCALATION MODAL (91 NUMBER) */}
+      {showHighAuthorityModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 text-left">
+            
+            <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#FFF0F0] text-[#FF3B30] flex items-center justify-center font-bold">
+                  🚨
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-[#1D1D1F]">High Authority Escalation</h3>
+                  <p className="text-[11px] text-[#FF3B30] font-bold">Priority Line (9102130956)</p>
+                </div>
+              </div>
+              <button onClick={() => setShowHighAuthorityModal(false)} className="p-1 text-[#86868B] hover:text-[#1D1D1F]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* MANDATORY NOTICE BANNER */}
+            <div className="p-3.5 bg-[#FFF0F0] border border-[#FF3B30]/30 rounded-2xl text-xs space-y-1">
+              <p className="font-extrabold text-[#FF3B30] flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>IMPORTANT HIGH AUTHORITY NOTICE</span>
+              </p>
+              <p className="text-[#1D1D1F] font-medium leading-relaxed">
+                Kripya is number par tabhi contact karein agar aapka issue <strong>9217031899 (Primary Help Line)</strong> par solve <strong>NAHI</strong> hua ho. Ye High Authority line hai.
+              </p>
+            </div>
+
+            {escalationError && (
+              <div className="p-3 bg-[#FFF0F0] text-[#FF3B30] border border-[#FF3B30]/30 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{escalationError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitEscalation} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">
+                  1. Kya issue tha? (Describe your issue) *
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={escalationIssue}
+                  onChange={(e) => setEscalationIssue(e.target.value)}
+                  placeholder="E.g. Location error during punch in, attendance missing..."
+                  className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold focus:outline-none focus:border-[#FF3B30]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">
+                  2. 92 wale number par kya discuss hua? *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={escalation92Discussion}
+                  onChange={(e) => setEscalation92Discussion(e.target.value)}
+                  placeholder="Explain what response or discussion happened when you contacted the 92 line..."
+                  className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold focus:outline-none focus:border-[#FF3B30]"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHighAuthorityModal(false)}
+                  className="w-1/3 py-3 rounded-xl bg-[#F5F5F7] text-[#1D1D1F] font-extrabold text-xs border border-[#E5E5EA] hover:bg-[#E5E5EA] cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="w-2/3 py-3 rounded-xl bg-[#FF3B30] text-white font-extrabold text-xs shadow-md shadow-[#FF3B30]/20 hover:bg-[#E03126] flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Proceed to High Authority</span>
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
 
       {/* OUTSIDE OFFICE RANGE ALERT POPUP MODAL (ANIMATED RED CROSS ✕) */}
       {showOutsideRangeModal && (
@@ -1127,9 +1296,14 @@ export default function StudentDashboard({
                   </div>
                 )
               ) : (
-                <div className="p-3 bg-[#E8F2FF] border border-[#0071E3]/30 rounded-xl text-xs text-[#0071E3] font-extrabold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                  <span>ℹ️ Online Class: Attendance will be marked as Online</span>
+                <div className="p-3.5 bg-[#E8F2FF] border border-[#0071E3]/30 rounded-2xl text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-extrabold text-[#0071E3]">
+                    <Globe className="w-4 h-4 flex-shrink-0" />
+                    <span>💻 Online Attendance Tracking Active</span>
+                  </div>
+                  <p className="text-[#1D1D1F] font-medium leading-relaxed">
+                    Aapka <strong>Login Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> aur <strong>Logout Time</strong> system dwara record kiya jayega. Attendance <strong>Online</strong> mark hogi aur Admin real-time me online status dekh sakta hai.
+                  </p>
                 </div>
               )}
             </div>
@@ -1176,6 +1350,18 @@ export default function StudentDashboard({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {activeSession?.mode === 'online' && (
+              <div className="p-3 bg-[#E8F2FF] border border-[#0071E3]/30 rounded-2xl text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-extrabold text-[#0071E3]">
+                  <Globe className="w-4 h-4 flex-shrink-0" />
+                  <span>💻 Online Session Logout</span>
+                </div>
+                <p className="text-[#1D1D1F] font-medium leading-relaxed">
+                  Aapka final <strong>Logout Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> save ho jayega. Active online status aur duration Admin Dashboard par reflect hogi.
+                </p>
+              </div>
+            )}
 
             {punchOutError && (
               <div className="p-2.5 bg-[#FFF0F0] border border-[#FF3B30]/30 rounded-xl text-xs text-[#FF3B30] font-bold flex items-center gap-2">
