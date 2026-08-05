@@ -22,10 +22,12 @@ import {
   Eye,
   Smartphone,
   Compass,
-  Monitor
+  Monitor,
+  LogOut
 } from 'lucide-react';
 
 export default function AdminDashboard({ currentUser, onLogout }) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [adminTab, setAdminTab] = useState('calendar'); // 'calendar' | 'location' | 'guests'
   const [adminSubTab, setAdminSubTab] = useState('calendar'); // 'calendar' | 'logs'
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
@@ -464,13 +466,64 @@ export default function AdminDashboard({ currentUser, onLogout }) {
 
             {/* Logout Button */}
             <button
-              onClick={onLogout}
+              onClick={() => setShowLogoutModal(true)}
               title="Logout"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 border border-rose-200 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
             </button>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutModal && (
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                style={{ backgroundColor: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)' }}
+              >
+                <div
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
+                  style={{ animation: 'modalPop 0.22s cubic-bezier(.34,1.56,.64,1) both' }}
+                >
+                  {/* Top accent */}
+                  <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-red-500 to-rose-400" />
+
+                  <div className="px-8 pt-8 pb-7 flex flex-col items-center text-center">
+                    {/* Icon */}
+                    <div className="mb-4 flex items-center justify-center w-16 h-16 rounded-full bg-rose-50 border-2 border-rose-100 shadow-inner">
+                      <LogOut className="w-7 h-7 text-rose-500" />
+                    </div>
+
+                    <h2 className="text-xl font-extrabold text-slate-800 mb-1.5">Logout?</h2>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                      Are you sure you want to logout from the admin panel?
+                    </p>
+
+                    <div className="flex gap-3 mt-7 w-full">
+                      <button
+                        onClick={() => setShowLogoutModal(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => { setShowLogoutModal(false); onLogout && onLogout(); }}
+                        className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-colors shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <style>{`
+                  @keyframes modalPop {
+                    from { opacity: 0; transform: scale(0.88) translateY(12px); }
+                    to   { opacity: 1; transform: scale(1) translateY(0); }
+                  }
+                `}</style>
+              </div>
+            )}
           </div>
         </div>
 
