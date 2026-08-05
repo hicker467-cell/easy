@@ -32,11 +32,6 @@ const User = mongoose.model('User', UserSchema);
 const Attendance = mongoose.model('Attendance', AttendanceSchema);
 
 const students = [
-  { studentId: 'STU-2026-001', name: 'Student A', email: 'a@gmail.com', password: '123456', role: 'student' },
-  { studentId: 'STU-2026-002', name: 'Student B', email: 'b@gmail.com', password: '123456', role: 'student' },
-  { studentId: 'STU-2026-003', name: 'Student C', email: 'c@gmail.com', password: '123456', role: 'student' },
-  { studentId: 'STU-2026-004', name: 'Student D', email: 'd@gmail.com', password: '123456', role: 'student' },
-  { studentId: 'STU-2026-005', name: 'Student E', email: 'e@gmail.com', password: '123456', role: 'student' },
   { studentId: 'ADMIN-001', name: 'School Admin', email: 'sudhir@gmail.com', password: '1234567890', role: 'admin' }
 ];
 
@@ -52,8 +47,8 @@ async function seed() {
     await Attendance.deleteMany({});
     console.log('✅ Database cleared!');
 
-    // Insert fresh students
-    console.log('👤 Inserting 5 students + 1 admin...');
+    // Insert admin
+    console.log('👑 Inserting admin account...');
     await User.insertMany(students);
     console.log('✅ Students inserted!');
 

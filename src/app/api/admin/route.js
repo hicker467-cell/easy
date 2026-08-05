@@ -79,7 +79,7 @@ export async function GET(req) {
 
       let settings = await Settings.findOne();
       if (!settings) {
-        settings = { campusLat: 28.6139, campusLng: 77.2090, campusRadiusMeters: 200 };
+        settings = { campusLat: 28.4625, campusLng: 77.0300, campusRadiusMeters: 100 };
       }
 
       return NextResponse.json({

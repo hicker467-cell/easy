@@ -9,54 +9,14 @@ let globalStore = {
       email: 'sudhir@gmail.com',
       password: '1234567890',
       role: 'admin'
-    },
-    {
-      studentId: 'STU-2026-001',
-      name: 'Rahul Sharma',
-      email: 'rahul@student.edu',
-      password: 'password123',
-      role: 'student'
     }
   ],
-  attendance: [
-    {
-      id: 'att_1',
-      studentId: 'STU-2026-001',
-      studentName: 'Rahul Sharma',
-      date: new Date().toISOString().split('T')[0],
-      month: new Date().toISOString().substring(0, 7),
-      punchInTime: new Date(Date.now() - 3600000 * 2).toISOString(),
-      punchOutTime: new Date(Date.now() - 3600000).toISOString(),
-      durationMinutes: 60,
-      mode: 'location',
-      locationData: {
-        latitude: 28.6139,
-        longitude: 77.2090,
-        distanceMeters: 18,
-        withinRange: true,
-        isLeftCampus: false,
-        ipAddress: '192.168.1.17'
-      },
-      notes: 'Today I studied React hooks, Next.js API route architecture, and Tailwind CSS v4 design principles.',
-      audioNote: null,
-      adminVoiceReply: null,
-      status: 'completed'
-    }
-  ],
-  guestAccessLogs: [
-    {
-      id: 'guest_1',
-      ipAddress: '192.168.1.17',
-      device: 'Windows PC (Chrome)',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      timestamp: new Date().toISOString(),
-      date: new Date().toISOString().split('T')[0]
-    }
-  ],
+  attendance: [],
+  guestAccessLogs: [],
   settings: {
-    campusLat: 28.6139,
-    campusLng: 77.2090,
-    campusRadiusMeters: 200
+    campusLat: 28.4625,
+    campusLng: 77.0300,
+    campusRadiusMeters: 100
   }
 };
 
