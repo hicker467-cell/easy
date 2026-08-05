@@ -498,6 +498,20 @@ export default function StudentDashboard({
         {activeTab === 'punch' && (
           <div className="max-w-md mx-auto space-y-4 animate-in fade-in duration-200">
             
+            {/* 👋 Dynamic Welcome Greeting Banner */}
+            <div className="bg-gradient-to-r from-[#0071E3] via-[#005BB5] to-[#34C759] rounded-[20px] p-4 text-white shadow-md flex items-center justify-between animate-in fade-in slide-in-from-top-3 duration-300">
+              <div className="space-y-0.5 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl animate-bounce inline-block">👋</span>
+                  <h3 className="font-black text-sm sm:text-base">Welcome Back, {currentUser?.name || 'Student'}!</h3>
+                </div>
+                <p className="text-[11px] text-white/95 font-medium">Ready for today's learning session? Verify location & punch in below.</p>
+              </div>
+              <div className="hidden sm:flex items-center justify-center px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs font-black text-[11px] tracking-wide shrink-0">
+                ⚡ Console Ready
+              </div>
+            </div>
+
             {/* Student Profile Card (Matching Screenshot 2) */}
             <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[#E5E5EA] flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1420,10 +1434,15 @@ export default function StudentDashboard({
                   placeholder="Describe your session activity (e.g. Attended Python Django class, completed lab exercise 1 & 2)..."
                   className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] font-medium"
                 />
-                {punchOutNotes.trim().length < 30 && (
+                {punchOutNotes.trim().length < 30 ? (
                   <p className="text-[10px] text-[#FF3B30] font-semibold mt-1">
                     ⚠️ Write at least {30 - punchOutNotes.trim().length} more character(s) to enable Checkout.
                   </p>
+                ) : (
+                  <div className="mt-2 p-2.5 bg-[#E8F8EE] border border-[#34C759]/30 rounded-xl text-xs text-[#34C759] font-extrabold flex items-center gap-2 animate-in zoom-in-95">
+                    <span className="text-base animate-bounce">🎉</span>
+                    <span>30-Character Activity Milestone Unlocked! Ready to Checkout.</span>
+                  </div>
                 )}
               </div>
             </div>
