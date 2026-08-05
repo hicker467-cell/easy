@@ -128,6 +128,95 @@ export async function POST(req) {
       return NextResponse.json({ authorized: isAuthorized });
     }
 
+    // Create / Add New Student Account with Password
+    if (action === 'create-student') {
+      const { name, email, studentId, phone, password, classMode } = body;
+
+      if (!name || !email || !password) {
+        return NextResponse.json({ error: 'Name, Email and Password are required.' }, { status: 400 });
+      }
+
+      const cleanEmail = email.toLowerCase().trim();
+      const finalStudentId = studentId && studentId.trim() !== ''
+        ? studentId.trim().toUpperCase()
+        : `STU-2026-${String(Math.floor(100 + Math.random() * 900))}`;
+
+      if (conn) {
+        const existingEmail = await User.findOne({ email: cleanEmail });
+        if (existingEmail) {
+          return NextResponse.json({ error: 'A student account with this Email already exists.' }, { status: 400 });
+        }
+        const existingId = await User.findOne({ studentId: finalStudentId });
+        if (existingId) {
+          return NextResponse.json({ error: 'A student account with this Student ID already exists.' }, { status: 400 });
+        }
+
+        const newUser = await User.create({
+          studentId: finalStudentId,
+          name,
+          email: cleanEmail,
+          phone: phone || '',
+          password,
+          role: 'student',
+          classMode: classMode || 'offline'
+        });
+
+        // Also sync into in-memory store
+        const store = getStore();
+        store.users.push({
+          studentId: newUser.studentId,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          password: newUser.password,
+          role: 'student',
+          classMode: newUser.classMode
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Student account created successfully!',
+          student: {
+            studentId: newUser.studentId,
+            name: newUser.name,
+            email: newUser.email,
+            phone: newUser.phone,
+            role: 'student',
+            profileImage: null,
+            classMode: newUser.classMode
+          }
+        });
+      } else {
+        const store = getStore();
+        const existingEmail = store.users.find(u => u.email.toLowerCase() === cleanEmail);
+        if (existingEmail) {
+          return NextResponse.json({ error: 'A student account with this Email already exists.' }, { status: 400 });
+        }
+        const existingId = store.users.find(u => u.studentId === finalStudentId);
+        if (existingId) {
+          return NextResponse.json({ error: 'A student account with this Student ID already exists.' }, { status: 400 });
+        }
+
+        const newUser = {
+          studentId: finalStudentId,
+          name,
+          email: cleanEmail,
+          phone: phone || '',
+          password,
+          role: 'student',
+          profileImage: null,
+          classMode: classMode || 'offline'
+        };
+        store.users.push(newUser);
+
+        return NextResponse.json({
+          success: true,
+          message: 'Student account created successfully!',
+          student: newUser
+        });
+      }
+    }
+
     if (action === 'update-geofence') {
       if (conn) {
         let setObj = await Settings.findOne();

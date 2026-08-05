@@ -59,6 +59,68 @@ export default function AdminDashboard({ currentUser }) {
   const [deleteStudentConfirmModal, setDeleteStudentConfirmModal] = useState(null);
   const [deleteStudentSubmitting, setDeleteStudentSubmitting] = useState(false);
 
+  // Add Student Modal State
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [newStudentForm, setNewStudentForm] = useState({
+    name: '',
+    email: '',
+    studentId: '',
+    phone: '',
+    password: '',
+    classMode: 'offline'
+  });
+  const [addStudentSubmitting, setAddStudentSubmitting] = useState(false);
+  const [addStudentError, setAddStudentError] = useState('');
+  const [addStudentSuccess, setAddStudentSuccess] = useState(null);
+
+  const handleAddStudentSubmit = async (e) => {
+    e.preventDefault();
+    setAddStudentError('');
+    setAddStudentSuccess(null);
+
+    if (!newStudentForm.name || !newStudentForm.email || !newStudentForm.password) {
+      setAddStudentError('Full Name, Email Address, and Password are required.');
+      return;
+    }
+
+    if (newStudentForm.phone && newStudentForm.phone.length !== 10) {
+      setAddStudentError('Mobile Number must be exactly 10 digits.');
+      return;
+    }
+
+    setAddStudentSubmitting(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create-student',
+          ...newStudentForm
+        })
+      });
+      const data = await res.json();
+      setAddStudentSubmitting(false);
+
+      if (!res.ok || data.error) {
+        setAddStudentError(data.error || 'Failed to create student account.');
+      } else {
+        setAddStudentSuccess(data.student);
+        setStudents((prev) => [data.student, ...prev]);
+        setNewStudentForm({
+          name: '',
+          email: '',
+          studentId: '',
+          phone: '',
+          password: '',
+          classMode: 'offline'
+        });
+      }
+    } catch (err) {
+      setAddStudentSubmitting(false);
+      setAddStudentError('Network error. Please try again.');
+    }
+  };
+
   // Guest delete state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
@@ -821,9 +883,24 @@ export default function AdminDashboard({ currentUser }) {
               <p className="text-xs text-slate-500 mt-0.5">Manage enrolled student profiles, photos, phone numbers & access</p>
             </div>
 
-            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-              Total Enrolled: {students.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddStudentError('');
+                  setAddStudentSuccess(null);
+                  setShowAddStudentModal(true);
+                }}
+                className="px-3.5 py-2 bg-[#0071E3] hover:bg-[#005bb5] text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>➕</span>
+                <span>Add New Student</span>
+              </button>
+
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                Total Enrolled: {students.length}
+              </span>
+            </div>
           </div>
 
           {filteredStudents.length === 0 ? (
@@ -1489,6 +1566,178 @@ export default function AdminDashboard({ currentUser }) {
                 className="flex-1 py-2.5 rounded-2xl bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 shadow-sm"
               >🗑️ Delete</button>
             </div>
+          </div>
+        </div>
+      {/* ADD NEW STUDENT MODAL */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-200 text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0071E3] flex items-center justify-center font-black text-base">
+                  ➕
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">Add New Student</h3>
+                  <p className="text-[11px] text-slate-500">Create student login credentials for instant access</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddStudentModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {addStudentError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
+                ⚠️ {addStudentError}
+              </div>
+            )}
+
+            {addStudentSuccess ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2 text-center">
+                <div className="text-2xl">🎉</div>
+                <h4 className="text-sm font-extrabold text-emerald-900">Student Account Created!</h4>
+                <div className="text-xs text-emerald-800 space-y-1 bg-white p-3 rounded-xl border border-emerald-100 font-mono text-left">
+                  <div><strong>Name:</strong> {addStudentSuccess.name}</div>
+                  <div><strong>Student ID:</strong> {addStudentSuccess.studentId}</div>
+                  <div><strong>Email:</strong> {addStudentSuccess.email}</div>
+                  <div><strong>Mobile:</strong> {addStudentSuccess.phone || 'N/A'}</div>
+                </div>
+                <p className="text-[11px] text-emerald-700 font-medium pt-1">
+                  Student can now directly log in on Web & Mobile App using their Email / Student ID & password!
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddStudentSuccess(null);
+                      setShowAddStudentModal(false);
+                    }}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAddStudentSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rahul Sharma"
+                    value={newStudentForm.name}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="student@gmail.com"
+                      value={newStudentForm.email}
+                      onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                      10-Digit Mobile Number
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={newStudentForm.phone}
+                      onChange={(e) => setNewStudentForm({ ...newStudentForm, phone: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                      Student ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Auto-generated if empty"
+                      value={newStudentForm.studentId}
+                      onChange={(e) => setNewStudentForm({ ...newStudentForm, studentId: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                      Login Password *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 123456"
+                      value={newStudentForm.password}
+                      onChange={(e) => setNewStudentForm({ ...newStudentForm, password: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                    Class Mode
+                  </label>
+                  <select
+                    value={newStudentForm.classMode}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, classMode: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0071E3] focus:bg-white cursor-pointer"
+                  >
+                    <option value="offline">🏫 Offline (Geofence Attendance)</option>
+                    <option value="online">💻 Online (Direct Punch)</option>
+                  </select>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStudentModal(false)}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={addStudentSubmitting}
+                    className="px-5 py-2.5 text-xs font-extrabold text-white bg-[#0071E3] hover:bg-[#005bb5] rounded-xl shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {addStudentSubmitting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Create Student Account</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
