@@ -6,12 +6,7 @@ import AdminDashboard from '@/components/AdminDashboard';
 import AuthModal from '@/components/AuthModal';
 
 export default function Home() {
-  const [currentUser, setCurrentUser] = useState({
-    name: 'Sudhir Kumar',
-    email: 'sudhir@gmail.com',
-    studentId: 'STU-2026-001',
-    role: 'student'
-  });
+  const [currentUser, setCurrentUser] = useState(null);
   const [activePortalTab, setActivePortalTab] = useState('punch');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -265,7 +260,7 @@ export default function Home() {
           <>
             {/* Logged-In Portal Views */}
             {activePortalTab === 'admin' || currentUser.role === 'admin' ? (
-              <AdminDashboard currentUser={currentUser} />
+              <AdminDashboard currentUser={currentUser} onLogout={handleLogout} />
             ) : (
               <StudentDashboard
                 currentUser={currentUser}

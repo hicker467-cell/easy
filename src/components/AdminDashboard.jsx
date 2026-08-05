@@ -25,7 +25,7 @@ import {
   Monitor
 } from 'lucide-react';
 
-export default function AdminDashboard({ currentUser }) {
+export default function AdminDashboard({ currentUser, onLogout }) {
   const [adminTab, setAdminTab] = useState('calendar'); // 'calendar' | 'location' | 'guests'
   const [adminSubTab, setAdminSubTab] = useState('calendar'); // 'calendar' | 'logs'
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
@@ -460,6 +460,16 @@ export default function AdminDashboard({ currentUser }) {
             >
               <Download className="w-3.5 h-3.5" />
               <span>CSV</span>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={onLogout}
+              title="Logout"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 border border-rose-200 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
