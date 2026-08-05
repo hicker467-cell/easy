@@ -725,7 +725,7 @@ export default function StudentDashboard({
 
               {/* YouTube Channel: CodingWithSudhir */}
               <div 
-                onClick={() => window.open('https://www.youtube.com/@codingwithsudhir', '_blank')}
+                onClick={() => window.open('https://www.youtube.com/@CodingWithSudhir', '_blank')}
                 className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-2xs flex items-center justify-between cursor-pointer hover:border-[#FF0000] transition-all group"
               >
                 <div className="flex items-center gap-3">
