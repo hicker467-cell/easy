@@ -971,80 +971,115 @@ export default function StudentDashboard({
           </div>
         )}
 
-        {/* 🎧 TAB 4: SUPPORT */}
+        {/* 🎧 TAB 4: SUPPORT & HELP CENTER */}
         {activeTab === 'support' && (
-          <div className="max-w-md mx-auto space-y-4 animate-in fade-in duration-200 text-left">
+          <div className="max-w-lg mx-auto space-y-4 animate-in fade-in duration-200 text-left pb-6">
+            
+            {/* Header info */}
+            <div className="bg-white rounded-[24px] p-5 shadow-2xs border border-[#E5E5EA]">
+              <h3 className="text-base font-extrabold text-[#1D1D1F]">Student Help & Support Center</h3>
+              <p className="text-xs text-[#86868B] mt-0.5">
+                Official Academy Portal: <a href="https://sssamacdemy.com" target="_blank" rel="noreferrer" className="text-[#0071E3] font-extrabold underline">sssamacdemy.com</a>
+              </p>
+            </div>
+
+            {supportError && (
+              <div className="p-3 bg-[#FFF0F0] text-[#FF3B30] border border-[#FF3B30]/30 text-xs font-bold rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{supportError}</span>
+              </div>
+            )}
+
+            {/* CARD 1: PRIMARY HELP & SUPPORT */}
             <div className="bg-white rounded-[24px] p-6 shadow-2xs border border-[#E5E5EA] space-y-4">
-              
-              <div>
-                <h3 className="text-base font-extrabold text-[#1D1D1F]">Student Support & Placement Group</h3>
-                <p className="text-xs text-[#86868B] mt-1">
-                  Official Website: <a href="https://sssamacdemy.com" target="_blank" rel="noreferrer" className="text-[#0071E3] font-extrabold underline">sssamacdemy.com</a>
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-[#E8F8EE] text-[#34C759] flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-[#1D1D1F]">Primary Support Line</h4>
+                  <p className="text-xs text-[#86868B] font-medium">For attendance logs, location errors, and daily help</p>
+                </div>
               </div>
 
-              {supportError && (
-                <div className="p-3 bg-[#FFF0F0] text-[#FF3B30] border border-[#FF3B30]/30 text-xs font-bold rounded-xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{supportError}</span>
-                </div>
-              )}
-
-              <div className="space-y-3.5">
+              <div className="space-y-3.5 pt-1">
                 <div>
-                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Your Name</label>
+                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Your Full Name</label>
                   <input type="text" value={supportName} onChange={(e) => setSupportName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Mobile / WhatsApp Number</label>
+                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Contact Mobile Number</label>
                   <input type="tel" value={supportPhone} onChange={(e) => setSupportPhone(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Describe Attendance Issue *</label>
+                  <label className="block text-xs font-bold text-[#1D1D1F] mb-1">Describe Issue Details *</label>
                   <textarea
                     rows={3}
                     value={supportMessage}
                     onChange={(e) => setSupportMessage(e.target.value)}
-                    placeholder="Describe missed punch or location error..."
+                    placeholder="Describe missed punch in/out or location error..."
                     className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] focus:outline-none focus:border-[#0071E3] font-medium"
                   />
                 </div>
 
-                {/* Professional Support Action Buttons (Clean & Without Raw Phone Numbers Displayed!) */}
-                <div className="pt-2 space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenWhatsApp('919217031899')}
-                    className="w-full py-3 rounded-xl bg-[#34C759] text-white font-extrabold text-xs shadow-md shadow-[#34C759]/20 hover:bg-[#2EB14F] flex items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>🟢 Primary Help & Support Line</span>
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenWhatsApp('919217031899')}
+                  className="w-full py-3 rounded-xl bg-[#34C759] text-white font-extrabold text-xs shadow-md shadow-[#34C759]/20 hover:bg-[#2EB14F] flex items-center justify-center gap-2 cursor-pointer transition-all mt-1"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Contact Primary Support</span>
+                </button>
+              </div>
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={handleOpenHighAuthorityModal}
-                    className="w-full py-3 rounded-xl bg-[#FFF0F0] border border-[#FF3B30]/30 text-[#FF3B30] font-extrabold text-xs hover:bg-[#FFE0E0] flex items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    <Phone className="w-4 h-4 text-[#FF3B30]" />
-                    <span>🚨 Priority Escalation Line (Unresolved Issues)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => window.open('https://chat.whatsapp.com/IoJv1FFdbNNGsSUN52ZZdS', '_blank')}
-                    className="w-full py-3 rounded-xl bg-[#0071E3] text-white font-extrabold text-xs shadow-md shadow-[#0071E3]/20 hover:bg-[#0062C4] flex items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>🎓 Join SSSAM Official Placement WhatsApp Group</span>
-                  </button>
+            {/* CARD 2: PRIORITY ESCALATION (HIGH AUTHORITY) */}
+            <div className="bg-[#FFF8F8] rounded-[24px] p-6 shadow-2xs border border-[#FF3B30]/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-[#FFF0F0] text-[#FF3B30]">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-[#1D1D1F]">Priority High Authority Escalation</h4>
+                    <p className="text-[11px] text-[#FF3B30] font-bold">Unresolved Issues Only</p>
+                  </div>
                 </div>
-
               </div>
 
+              <p className="text-xs text-[#86868B] font-medium leading-relaxed">
+                Have you already contacted Primary Support without resolution? Escalate your case directly to High Authority management.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleOpenHighAuthorityModal}
+                className="w-full py-3 rounded-xl bg-[#FF3B30] text-white font-extrabold text-xs shadow-md shadow-[#FF3B30]/20 hover:bg-[#E03126] flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span>Submit High Authority Escalation Request</span>
+              </button>
             </div>
+
+            {/* CARD 3: PLACEMENT COMMUNITY GROUP */}
+            <div className="bg-white rounded-[24px] p-5 shadow-2xs border border-[#E5E5EA] flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-extrabold text-[#1D1D1F]">SSSAM Official Placement Group</h4>
+                <p className="text-[11px] text-[#86868B]">Join the official community for placement updates</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => window.open('https://chat.whatsapp.com/IoJv1FFdbNNGsSUN52ZZdS', '_blank')}
+                className="py-2.5 px-4 rounded-xl bg-[#0071E3] text-white font-extrabold text-xs shadow-md shadow-[#0071E3]/20 hover:bg-[#0062C4] flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Join Group</span>
+              </button>
+            </div>
+
           </div>
         )}
 
@@ -1093,7 +1128,7 @@ export default function StudentDashboard({
         </button>
       </div>
 
-      {/* 🚨 HIGH AUTHORITY PRIORITY ESCALATION MODAL (91 NUMBER) */}
+      {/* 🚨 HIGH AUTHORITY PRIORITY ESCALATION MODAL */}
       {showHighAuthorityModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 text-left">
@@ -1105,7 +1140,7 @@ export default function StudentDashboard({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base text-[#1D1D1F]">High Authority Escalation</h3>
-                  <p className="text-[11px] text-[#FF3B30] font-bold">Priority Line (9102130956)</p>
+                  <p className="text-[11px] text-[#FF3B30] font-bold">Priority Escalation Desk</p>
                 </div>
               </div>
               <button onClick={() => setShowHighAuthorityModal(false)} className="p-1 text-[#86868B] hover:text-[#1D1D1F]">
@@ -1117,10 +1152,10 @@ export default function StudentDashboard({
             <div className="p-3.5 bg-[#FFF0F0] border border-[#FF3B30]/30 rounded-2xl text-xs space-y-1">
               <p className="font-extrabold text-[#FF3B30] flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>IMPORTANT HIGH AUTHORITY NOTICE</span>
+                <span>IMPORTANT ESCALATION NOTICE</span>
               </p>
               <p className="text-[#1D1D1F] font-medium leading-relaxed">
-                Kripya is number par tabhi contact karein agar aapka issue <strong>9217031899 (Primary Help Line)</strong> par solve <strong>NAHI</strong> hua ho. Ye High Authority line hai.
+                Please contact High Authority <strong>ONLY</strong> if your issue was <strong>NOT resolved</strong> after discussing with Primary Support.
               </p>
             </div>
 
@@ -1134,28 +1169,28 @@ export default function StudentDashboard({
             <form onSubmit={handleSubmitEscalation} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">
-                  1. Kya issue tha? (Describe your issue) *
+                  1. Describe your attendance or system issue *
                 </label>
                 <textarea
                   rows={2}
                   required
                   value={escalationIssue}
                   onChange={(e) => setEscalationIssue(e.target.value)}
-                  placeholder="E.g. Location error during punch in, attendance missing..."
+                  placeholder="E.g., Location verification error, missing attendance record..."
                   className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold focus:outline-none focus:border-[#FF3B30]"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-extrabold text-[#1D1D1F] mb-1">
-                  2. 92 wale number par kya discuss hua? *
+                  2. What was discussed with Primary Support? *
                 </label>
                 <textarea
                   rows={3}
                   required
                   value={escalation92Discussion}
                   onChange={(e) => setEscalation92Discussion(e.target.value)}
-                  placeholder="Explain what response or discussion happened when you contacted the 92 line..."
+                  placeholder="Explain what response or conversation took place when you contacted Primary Support..."
                   className="w-full p-3 rounded-xl bg-[#F5F5F7] border border-[#E5E5EA] text-xs text-[#1D1D1F] font-bold focus:outline-none focus:border-[#FF3B30]"
                 />
               </div>
@@ -1302,7 +1337,7 @@ export default function StudentDashboard({
                     <span>💻 Online Attendance Tracking Active</span>
                   </div>
                   <p className="text-[#1D1D1F] font-medium leading-relaxed">
-                    Aapka <strong>Login Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> aur <strong>Logout Time</strong> system dwara record kiya jayega. Attendance <strong>Online</strong> mark hogi aur Admin real-time me online status dekh sakta hai.
+                    Your exact <strong>Login Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> and <strong>Logout Time</strong> will be recorded as <strong>Online Attendance</strong>. Admin can monitor your real-time online status and session timestamps on the Admin Console.
                   </p>
                 </div>
               )}
@@ -1358,7 +1393,7 @@ export default function StudentDashboard({
                   <span>💻 Online Session Logout</span>
                 </div>
                 <p className="text-[#1D1D1F] font-medium leading-relaxed">
-                  Aapka final <strong>Logout Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> save ho jayega. Active online status aur duration Admin Dashboard par reflect hogi.
+                  Your final <strong>Logout Time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</strong> will be saved. Active online status and total session duration will be reflected on the Admin Dashboard.
                 </p>
               </div>
             )}
