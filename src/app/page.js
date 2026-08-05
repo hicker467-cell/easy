@@ -5,6 +5,8 @@ import StudentDashboard from '@/components/StudentDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
 import AuthModal from '@/components/AuthModal';
 
+const SESSION_VERSION = 'v2';
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [activePortalTab, setActivePortalTab] = useState('punch');
@@ -13,12 +15,19 @@ export default function Home() {
   // Restore User Session from localStorage or NextAuth Google OAuth
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('geo_current_user');
-      if (stored) {
-        const userObj = JSON.parse(stored);
-        setCurrentUser(userObj);
-        if (userObj.role === 'admin') {
-          setActivePortalTab('admin');
+      const storedVersion = localStorage.getItem('geo_session_version');
+      if (storedVersion !== SESSION_VERSION) {
+        // Force logout all old sessions
+        localStorage.removeItem('geo_current_user');
+        localStorage.setItem('geo_session_version', SESSION_VERSION);
+      } else {
+        const stored = localStorage.getItem('geo_current_user');
+        if (stored) {
+          const userObj = JSON.parse(stored);
+          setCurrentUser(userObj);
+          if (userObj.role === 'admin') {
+            setActivePortalTab('admin');
+          }
         }
       }
     } catch (e) {
@@ -228,6 +237,7 @@ export default function Home() {
   const handleLoginSuccess = (userObj) => {
     setCurrentUser(userObj);
     localStorage.setItem('geo_current_user', JSON.stringify(userObj));
+    localStorage.setItem('geo_session_version', SESSION_VERSION);
     setShowAuthModal(false);
     if (userObj.role === 'admin') {
       setActivePortalTab('admin');
