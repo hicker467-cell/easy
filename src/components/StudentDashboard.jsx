@@ -381,6 +381,36 @@ export default function StudentDashboard({
     setShowHighAuthorityModal(false);
   };
 
+  // Compute Today's Date String (YYYY-MM-DD)
+  const todayDateStr = new Date().toLocaleDateString('en-CA');
+
+  // Filter records for TODAY ONLY
+  const todayRecords = records.filter((r) => {
+    if (!r) return false;
+    if (r.date && r.date === todayDateStr) return true;
+    if (r.punchInTime) {
+      const pDate = new Date(r.punchInTime).toLocaleDateString('en-CA');
+      return pDate === todayDateStr;
+    }
+    return false;
+  });
+
+  // Today's First Check-In Time
+  let todayFirstCheckIn = '--:--';
+  if (activeSession && new Date(activeSession.punchInTime).toLocaleDateString('en-CA') === todayDateStr) {
+    todayFirstCheckIn = new Date(activeSession.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (todayRecords.length > 0 && todayRecords[0].punchInTime) {
+    todayFirstCheckIn = new Date(todayRecords[0].punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Today's Last Check-Out Time
+  let todayLastCheckOut = '--:--';
+  const todayCompleted = todayRecords.filter((r) => r.punchOutTime);
+  if (todayCompleted.length > 0) {
+    const lastRec = todayCompleted[todayCompleted.length - 1];
+    todayLastCheckOut = new Date(lastRec.punchOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
   // Metrics Calculations (August 2026)
   const monthRecords = records.filter((r) => r.date && r.date.startsWith('2026-08'));
   const presentDays = monthRecords.length > 0 ? monthRecords.length : 2;
@@ -647,16 +677,16 @@ export default function StudentDashboard({
 
             </div>
 
-            {/* Today's Quick Data Grid */}
+            {/* Today's Quick Data Grid (Today Only!) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-2xs flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-[#E8F8EE] text-[#34C759]">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">First Check-In</span>
+                  <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Today's First Check-In</span>
                   <span className="text-xs font-extrabold text-[#1D1D1F]">
-                    {activeSession ? new Date(activeSession.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '09:15 AM'}
+                    {todayFirstCheckIn}
                   </span>
                 </div>
               </div>
@@ -666,8 +696,10 @@ export default function StudentDashboard({
                   <Clock className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Last Check-Out</span>
-                  <span className="text-xs font-extrabold text-[#1D1D1F]">04:30 PM</span>
+                  <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider block">Today's Last Check-Out</span>
+                  <span className="text-xs font-extrabold text-[#1D1D1F]">
+                    {todayLastCheckOut}
+                  </span>
                 </div>
               </div>
             </div>
